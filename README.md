@@ -29,7 +29,7 @@ Um projeto de emulação de consoles retrô desenvolvido em **Unity**, focado em
 | OpenXR Plugin     | ![OpenXR Plugin](https://img.shields.io/badge/Open%20XR-1.15.1-blue.svg) |
 | Newtonsoft Json   | ![JSON](https://img.shields.io/badge/Newtonsofg%20Json-3.2.1-green.svg)        |
 | URP               | ![URP](https://img.shields.io/badge/URP-17.1.0-blue.svg)                      |
-| Libretro          | ![Libretro](https://img.shields.io/badge/Libretro-0.9.2-green.svg)           |
+| [SK.Libretro](https://github.com/Skurdt/SK.Libretro)       | ![Libretro](https://img.shields.io/badge/Libretro-0.9.2-green.svg)           |
 | C#                | ![C#](https://img.shields.io/badge/C%23-gray.svg?logo=c-sharp&logoColor=white) |
 
 

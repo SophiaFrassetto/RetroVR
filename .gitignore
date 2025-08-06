@@ -138,3 +138,6 @@ CAPSImg.dll
 
 # Unity TestTools
 ProjectSettings/Packages/com.unity.testtools.codecoverage/
+
+# VSCode
+.vscode/
