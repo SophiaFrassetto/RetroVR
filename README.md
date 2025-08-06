@@ -1,3 +1,7 @@
+<p align="center">
+<img src="Docs/img/logo.png" alt="RetroVR Logo" width="200"/>
+</p>
+
 # 🎮 RetroVR
 
 Um projeto de emulação de consoles retrô desenvolvido em **Unity**, focado em VR (Meta Quest), que oferece um ambiente imersivo, sistema de inventário, leitura automática de ROMs, configurações de mundo e um quarto totalmente customizável. O objetivo é proporcionar uma experiência standalone, intuitiva e nostálgica para fãs de jogos clássicos.
@@ -181,7 +185,7 @@ Acompanhe as principais tarefas e o progresso do projeto:
         - [ ] Gerenciar cabos de energia
         - [ ] Gerenciar cabos de imagem
         - [ ] Gerenciar cabos de controle
-- [ ] Criar um prefab default para o cabo
+    - [ ] Criar um prefab default para o cabo
     - [ ] Uma ponta com uma tag de WireInput
     - [ ] Uma ponta com uma tag de WireOutput
     - [ ] Um material com cor dinamica
