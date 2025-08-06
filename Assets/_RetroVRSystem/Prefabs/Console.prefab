@@ -571,6 +571,8 @@ GameObject:
   - component: {fileID: 4595322760532796468}
   - component: {fileID: 5860755766926908184}
   - component: {fileID: 8842786378482710891}
+  - component: {fileID: 3150896908344039085}
+  - component: {fileID: 3354444479144753}
   m_Layer: 0
   m_Name: Console
   m_TagString: Untagged
@@ -642,6 +644,56 @@ Rigidbody:
   m_Interpolate: 0
   m_Constraints: 0
   m_CollisionDetection: 2
+--- !u!114 &3150896908344039085
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3703184545803176192}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fd93d7cb481fd424080ee4441f418b53, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  <LightgunRaycastLayer>k__BackingField: 0
+  <Renderer>k__BackingField: {fileID: 0}
+  <Collider>k__BackingField: {fileID: 0}
+  <Settings>k__BackingField:
+    AllowGLCoresInEditor: 1
+    ShaderTextureName: _MainTex
+    AudioDistanceControl: 1
+    AudioMaxVolume: 1
+    AudioMinDistance: 2
+    AudioMaxDistance: 10
+    LeftStickBehaviour: 2
+    RewindEnabled: 0
+    ReadSaveMemory: 0
+    ReadRtcMemory: 0
+    ReadSystemMemory: 0
+    ReadVideoMemory: 0
+  <CoreName>k__BackingField: 
+  <GamesDirectory>k__BackingField: 
+  <GameNames>k__BackingField:
+  - 
+  _camera: {fileID: 0}
+  _lightgunRaycastSource: {fileID: 0}
+--- !u!114 &3354444479144753
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3703184545803176192}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0eb7c7b94624f82469210c0e11cb1bf0, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  consoleDefinition: {fileID: 11400000, guid: 9c6d5c909f73b484aae84aa6e43de2ba, type: 2}
+  screenInstance: {fileID: 0}
+  displayConsoleName: {fileID: 6940885163051431912}
+  insertedCartridge: {fileID: 0}
 --- !u!1 &4314392562961353192
 GameObject:
   m_ObjectHideFlags: 0

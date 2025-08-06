@@ -12,7 +12,7 @@ GameObject:
   - component: {fileID: 5791656676035113885}
   - component: {fileID: 4790573309568634442}
   m_Layer: 0
-  m_Name: Text (TMP)
+  m_Name: CartridgeName
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -304,6 +304,7 @@ GameObject:
   - component: {fileID: 3505698249549616070}
   - component: {fileID: 4632091665171381321}
   - component: {fileID: 3624210185060916078}
+  - component: {fileID: 3881762416565691383}
   m_Layer: 0
   m_Name: Cartridge
   m_TagString: Untagged
@@ -377,3 +378,17 @@ Rigidbody:
   m_Interpolate: 0
   m_Constraints: 0
   m_CollisionDetection: 2
+--- !u!114 &3881762416565691383
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7746328291450184028}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f1d4db254d196e341b09ae746b982cff, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  cartridgeDefinition: {fileID: 11400000, guid: 2248addb1e3db6f4683e2f926b507e4c, type: 2}
+  displayRomName: {fileID: 4790573309568634442}
