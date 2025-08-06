@@ -1,5 +1,5 @@
 <p align="center">
-<img src="Docs/img/logo.png" alt="RetroVR Logo" width="200"/>
+<img src="Docs/img/logo_no_bg.png" alt="RetroVR Logo" width="200"/>
 </p>
 
 # 🎮 RetroVR
