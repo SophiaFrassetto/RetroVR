@@ -1,6 +1,8 @@
+using System;
+using System.Collections;
+using System.Linq;
 using UnityEngine;
 using TMPro;
-using System.Linq;
 using SK.Libretro.Unity;
 using UnityEngine.XR.Interaction.Toolkit;
 
@@ -23,6 +25,29 @@ namespace retrovr.system
 
         [Header("Console State")]
         [SerializeField] private bool running => GetRunningState();
+
+        [SerializeField]
+        private ConsoleOperationalState operationalState = ConsoleOperationalState.Off;
+
+        [SerializeField]
+        private ConsolePhysicalState physicalState = ConsolePhysicalState.Loose;
+
+        /// <summary>
+        /// Notifies listeners when operational state changes (Initializing, Running, Error, etc.)
+        /// </summary>
+        public event Action<ConsoleOperationalState> OnOperationalStateChanged;
+
+        /// <summary>
+        /// Notifies listeners when physical state changes (Held, Placed, Connected, etc.)
+        /// </summary>
+        public event Action<ConsolePhysicalState> OnPhysicalStateChanged;
+
+        // Optional audio feedback (serialize if you want sounds; keep null-safe)
+        [Header("Optional Feedback (audio)")]
+        [SerializeField] private AudioSource feedbackAudioSource;
+        [SerializeField] private AudioClip clipPowerOn;
+        [SerializeField] private AudioClip clipInsertCartridge;
+        [SerializeField] private AudioClip clipPowerOff;
         #endregion
 
         #region Execution
@@ -40,6 +65,9 @@ namespace retrovr.system
 
             emulatorInstance.Current = GetComponent<LibretroInstance>();
             insertedCartridge = null;
+
+            SetOperationalState(ConsoleOperationalState.Off);
+            SetPhysicalState(ConsolePhysicalState.Loose);
         }
         #endregion
 
@@ -83,7 +111,11 @@ namespace retrovr.system
                 return;
             }
 
+            SetOperationalState(ConsoleOperationalState.Initializing);
             emulatorInstance.StartContent();
+
+            // wait for libretro to report running
+            StartCoroutine(WaitForEmulatorRunningCoroutine(5f));
         }
 
         public void PowerOff()
@@ -94,7 +126,9 @@ namespace retrovr.system
                 return;
             }
 
+            SetOperationalState(ConsoleOperationalState.ShuttingDown);
             emulatorInstance.StopContent();
+            SetOperationalState(ConsoleOperationalState.Off);
         }
 
         public void ResetConsole()
@@ -138,6 +172,8 @@ namespace retrovr.system
                 if (CanAcceptCartridge(cartridgeInstance.cartridgeDefinition))
                 {
                     insertedCartridge = cartridgeInstance;
+                    SetPhysicalState(ConsolePhysicalState.Placed);
+                    SetOperationalState(ConsoleOperationalState.CartridgeInserted);
                     InitializeEmulator();
                 }
             }
@@ -159,10 +195,12 @@ namespace retrovr.system
 
             insertedCartridge = null;
             emulatorInstance.Current.DeInitialize();
+            SetOperationalState(ConsoleOperationalState.Off);
+            SetPhysicalState(ConsolePhysicalState.Loose);
         }
         #endregion
 
-        #region Emulator Management
+        #region Emulator Management\
         private void InitializeEmulator()
         {
             if (emulatorInstance == null || consoleDefinition == null)
@@ -190,6 +228,116 @@ namespace retrovr.system
         #endregion
 
         #region Input Management
+        #endregion
+
+        #region State Management
+        /// <summary>
+        /// Change the operational state of this console and fire events.
+        /// Keep local reactions lightweight; heavy VFX / audio should live in a manager.
+        /// </summary>
+        public void SetOperationalState(ConsoleOperationalState newState)
+        {
+            if (operationalState == newState) return;
+
+            operationalState = newState;
+            Log.Info($"[ConsoleInstance] OperationalState -> {operationalState}");
+            OnOperationalStateChanged?.Invoke(operationalState);
+
+            // Local minimal reactions (non-blocking)
+            switch (operationalState)
+            {
+                case ConsoleOperationalState.Initializing:
+                    TryPlayOneShot(clipPowerOn);
+                    // optionally notify screen to enter Booting (via screenInstance)
+                    if (screenInstance != null)
+                        Log.Info("[ConsoleInstance] Screen would enter Booting state here.");
+                        // screenInstance.SetOperationalState(ScreenOperationalState.Booting);
+                    break;
+
+                case ConsoleOperationalState.Running:
+                    if (screenInstance != null)
+                        Log.Info("[ConsoleInstance] Screen would enter ShowingContent state here.");
+                        // screenInstance.SetOperationalState(ScreenOperationalState.ShowingContent);
+                    break;
+
+                case ConsoleOperationalState.ShuttingDown:
+                    // We could animate shutdown visual here
+                    break;
+
+                case ConsoleOperationalState.Off:
+                    if (screenInstance != null)
+                        Log.Info("[ConsoleInstance] Screen would enter Off state here.");
+                        // screenInstance.SetOperationalState(ScreenOperationalState.Off);
+                    break;
+
+                case ConsoleOperationalState.Error:
+                    if (screenInstance != null)
+                        Log.Info("[ConsoleInstance] Screen would enter Error state here.");
+                        // screenInstance.SetOperationalState(ScreenOperationalState.Error);
+                    break;
+            }
+        }
+
+        /// <summary>
+        /// Change the physical state (Held, Placed, Connected) of the console.
+        /// </summary>
+        public void SetPhysicalState(ConsolePhysicalState newState)
+        {
+            if (physicalState == newState) return;
+            physicalState = newState;
+            Log.Info($"[ConsoleInstance] PhysicalState -> {physicalState}");
+            OnPhysicalStateChanged?.Invoke(physicalState);
+
+            // Local reactions (snap transforms, lock rigidbody, etc) - keep small here
+            switch (physicalState)
+            {
+                case ConsolePhysicalState.Held:
+                    // e.g., disable rigidbody gravity if needed
+                    break;
+                case ConsolePhysicalState.Placed:
+                    // e.g., re-enable physics or fix rotation
+                    break;
+                case ConsolePhysicalState.ConnectedToScreen:
+                    // ensure emulator renderer is assigned
+                    if (emulatorInstance?.Current != null && screenInstance != null)
+                    {
+                        emulatorInstance.Current.Renderer = screenInstance.screenRenderer;
+                        emulatorInstance.Current.Collider = screenInstance.screenCollider;
+                    }
+                    break;
+            }
+        }
+
+        /// <summary>
+        /// Play a one-shot audio clip if available.
+        /// </summary>
+        private void TryPlayOneShot(AudioClip clip)
+        {
+            if (clip == null || feedbackAudioSource == null) return;
+            feedbackAudioSource.PlayOneShot(clip);
+        }
+
+        /// <summary>
+        /// Waits until the Libretro instance reports Running or times out.
+        /// </summary>
+        private IEnumerator WaitForEmulatorRunningCoroutine(float timeoutSeconds = 5f)
+        {
+            float t = 0f;
+            while (t < timeoutSeconds)
+            {
+                if (emulatorInstance != null && emulatorInstance.Current != null && emulatorInstance.Current.Running)
+                {
+                    SetOperationalState(ConsoleOperationalState.Running);
+                    yield break;
+                }
+                t += Time.deltaTime;
+                yield return null;
+            }
+
+            // timed out
+            Log.Warn("[ConsoleInstance] Timeout waiting for emulator to report Running.");
+            SetOperationalState(ConsoleOperationalState.Error);
+        }
         #endregion
     }
 }

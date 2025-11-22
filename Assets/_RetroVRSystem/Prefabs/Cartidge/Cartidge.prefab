@@ -307,7 +307,7 @@ GameObject:
   - component: {fileID: 3881762416565691383}
   - component: {fileID: 4609768548530420349}
   m_Layer: 0
-  m_Name: Cartridge
+  m_Name: Cartidge
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
