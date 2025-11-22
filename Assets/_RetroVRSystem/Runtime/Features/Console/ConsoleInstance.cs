@@ -8,39 +8,37 @@ using UnityEngine.XR.Interaction.Toolkit;
 
 namespace retrovr.system
 {
-    [RequireComponent(typeof(LibretroInstance))]
+    [RequireComponent(typeof(LibretroInstance)), RequireComponent(typeof(AudioSource))]
     public class ConsoleInstance : MonoBehaviour
     {
-        #region Fields
-        [Header("Libretro Instance")]
-        private LibretroInstanceVariable emulatorInstance;
-
+        #region Inspector Fields
         [Header("Console Configuration")]
         [SerializeField] private ConsoleDefinition consoleDefinition;
-        [SerializeField] private ScreenInstance screenInstance;
         [SerializeField] private TMP_Text displayConsoleName;
+        [SerializeField] private bool playAudio = true;
+        #endregion
 
-        [Header("Cartridge Configuration")]
-        private CartridgeInstance insertedCartridge;
-
+        #region State Handling
         [Header("Console State")]
-        [SerializeField] private bool running => GetRunningState();
 
         [SerializeField]
         private ConsoleOperationalState operationalState = ConsoleOperationalState.Off;
 
         [SerializeField]
         private ConsolePhysicalState physicalState = ConsolePhysicalState.Loose;
-
-        /// <summary>
-        /// Notifies listeners when operational state changes (Initializing, Running, Error, etc.)
-        /// </summary>
         public event Action<ConsoleOperationalState> OnOperationalStateChanged;
-
-        /// <summary>
-        /// Notifies listeners when physical state changes (Held, Placed, Connected, etc.)
-        /// </summary>
         public event Action<ConsolePhysicalState> OnPhysicalStateChanged;
+        #endregion
+
+        #region Component References
+        [Header("Libretro Instance")]
+        private LibretroInstanceVariable emulatorInstance;
+
+        [Header("Screen Configuration")]
+        [SerializeField] private ScreenInstance screenInstance;
+
+        [Header("Cartridge Configuration")]
+        private CartridgeInstance insertedCartridge;
 
         // Optional audio feedback (serialize if you want sounds; keep null-safe)
         [Header("Optional Feedback (audio)")]
@@ -50,10 +48,10 @@ namespace retrovr.system
         [SerializeField] private AudioClip clipPowerOff;
         #endregion
 
-        #region Execution
+        #region Unity Lifecycle
         private void Awake()
         {
-            if (consoleDefinition != null)
+            if (consoleDefinition != null && displayConsoleName != null)
             {
                 displayConsoleName.text = consoleDefinition.consoleName;
             }
@@ -71,7 +69,7 @@ namespace retrovr.system
         }
         #endregion
 
-        #region Console Management
+        #region Console Handling
         private bool GetRunningState()
         {
             return emulatorInstance.Current.Running;
@@ -96,9 +94,11 @@ namespace retrovr.system
         }
         #endregion
 
-        #region Power Management
+        #region Power Handling
         public void PowerOn()
         {
+            TryPlayOneShot(clipPowerOn);
+
             if (consoleDefinition == null)
             {
                 Log.Error("[ConsoleInstance] Console definition is not set.");
@@ -107,11 +107,25 @@ namespace retrovr.system
 
             if (insertedCartridge == null)
             {
-                Log.Error("[ConsoleInstance] No cartridge inserted.");
+                Log.Warn("[ConsoleInstance] PowerOn requested but no cartridge present. Use Power() to enter Standby.");
+                // set to Standby to reflect "powered but waiting"
+                SetOperationalState(ConsoleOperationalState.Standby);
+                return;
+            }
+
+            // if emulator already running, ignore
+            if (operationalState == ConsoleOperationalState.Running)
+            {
+                Log.Warn("[ConsoleInstance] PowerOn requested but emulator is already running.");
                 return;
             }
 
             SetOperationalState(ConsoleOperationalState.Initializing);
+
+            // make sure emulator is initialized with the current cartridge and screen
+            InitializeEmulator();
+
+            // start the emulation runtime
             emulatorInstance.StartContent();
 
             // wait for libretro to report running
@@ -120,20 +134,54 @@ namespace retrovr.system
 
         public void PowerOff()
         {
-            if (!running || !emulatorInstance.Current.Running)
+            TryPlayOneShot(clipPowerOff);
+            bool wasPowered = IsPowered();
+
+            // If already off, nothing to do
+            if (!wasPowered)
             {
-                Log.Error("[ConsoleInstance] Console is not powered on or emulator is not running.");
+                Log.Warn("[ConsoleInstance] PowerOff requested but console is already Off or in Error.");
+                SetOperationalState(ConsoleOperationalState.Off);
                 return;
             }
 
-            SetOperationalState(ConsoleOperationalState.ShuttingDown);
-            emulatorInstance.StopContent();
-            SetOperationalState(ConsoleOperationalState.Off);
+            if (operationalState == ConsoleOperationalState.Running)
+            {
+                SetOperationalState(ConsoleOperationalState.ShuttingDown);
+            }
+
+            bool instanceCurrentExists = emulatorInstance != null && emulatorInstance.Current != null;
+
+            // If emulator is running, stop it gracefully
+            if (operationalState == ConsoleOperationalState.ShuttingDown && instanceCurrentExists && emulatorInstance.Current.Running)
+            {
+                try
+                {
+                    emulatorInstance.StopContent();
+                    // deinitialize the emulator as we are powering off (safe-guard)
+                    DeInitializeEmulator();
+                }
+                catch (Exception ex)
+                {
+                    Log.Error($"[ConsoleInstance] Error while stopping emulator: {ex.Message}");
+                }
+            }
+            else
+            {
+                // Not running (Standby or CartridgeInserted), ensure emulator is deinitialized
+                if (instanceCurrentExists)
+                {
+                    DeInitializeEmulator();
+                }
+            }
+
+            // Final state is Off
+            StartCoroutine(WaitForEmulatorOffCoroutine(5f));
         }
 
         public void ResetConsole()
         {
-            if (!running || !emulatorInstance.Current.Running)
+            if (operationalState != ConsoleOperationalState.Running || !emulatorInstance.Current.Running)
             {
                 Log.Error("[ConsoleInstance] Console is not powered on or emulator is not running.");
                 return;
@@ -143,38 +191,73 @@ namespace retrovr.system
         }
         #endregion
 
-        #region Cartridge Management
+        #region Cartridge Handling
         public void InsertCartridge(SelectEnterEventArgs args)
         {
-            if (running)
-            {
-                Log.Error("[ConsoleInstance] Cannot insert cartridge while console is powered on.");
-                return;
-            }
-
+            // Do not allow insert if we already have a cartridge
             if (insertedCartridge != null)
             {
-                Log.Warn("[ConsoleInstance] A cartridge is already inserted. Ejecting the current cartridge.");
+                Log.Warn("[ConsoleInstance] A cartridge is already inserted. Eject before inserting a new one.");
                 return;
             }
 
+            // capture powered state BEFORE we change any operational state
+            bool wasPowered = IsPowered();
+
             var interactorable = args.interactableObject;
+            if (interactorable == null)
+            {
+                Log.Error("[ConsoleInstance] InsertCartridge called with null interactable.");
+                return;
+            }
+
             var cartridgeObject = interactorable.transform.gameObject;
             CartridgeInstance cartridgeInstance = cartridgeObject.GetComponent<CartridgeInstance>();
+            if (cartridgeInstance == null)
+            {
+                Log.Error("[ConsoleInstance] InsertCartridge: object is not a CartridgeInstance.");
+                return;
+            }
 
             if (cartridgeInstance.cartridgeDefinition == null)
             {
-                Log.Error("[ConsoleInstance] Cannot insert a null cartridge.");
+                Log.Error("[ConsoleInstance] Cannot insert a null cartridge definition.");
                 return;
             }
-            else
+
+            if (!CanAcceptCartridge(cartridgeInstance.cartridgeDefinition))
             {
-                if (CanAcceptCartridge(cartridgeInstance.cartridgeDefinition))
+                Log.Error("[ConsoleInstance] Cartridge rejected by CanAcceptCartridge.");
+                return;
+            }
+
+            // Accept cartridge into slot (physical + logical)
+            insertedCartridge = cartridgeInstance;
+            SetPhysicalState(ConsolePhysicalState.Placed);
+            SetOperationalState(ConsoleOperationalState.CartridgeInserted);
+            TryPlayOneShot(clipInsertCartridge);
+
+            Log.Info($"[ConsoleInstance] Cartridge '{insertedCartridge.cartridgeDefinition.romName}' inserted.");
+
+            // Use the value captured BEFORE we set CartridgeInserted
+            if (wasPowered)
+            {
+                // If already running ignore; otherwise initialize/start
+                if (operationalState != ConsoleOperationalState.Running)
                 {
-                    insertedCartridge = cartridgeInstance;
-                    SetPhysicalState(ConsolePhysicalState.Placed);
-                    SetOperationalState(ConsoleOperationalState.CartridgeInserted);
-                    InitializeEmulator();
+                    SetOperationalState(ConsoleOperationalState.Initializing);
+
+                    // attempt initialization; only start content if initialization succeeded
+                    if (InitializeEmulator())
+                    {
+                        emulatorInstance.StartContent();
+                        StartCoroutine(WaitForEmulatorRunningCoroutine(5f));
+                    }
+                    else
+                    {
+                        Log.Error("[ConsoleInstance] Initialization failed: preconditions not met (emulator/def/cart missing).");
+                        SetOperationalState(ConsoleOperationalState.Error);
+                    }
                 }
             }
         }
@@ -187,31 +270,60 @@ namespace retrovr.system
                 return;
             }
 
-            if (running)
+            // If emulator is running, require explicit PowerOff before ejecting
+            if (operationalState == ConsoleOperationalState.Running)
             {
-                PowerOff();
-                Log.Warn("[ConsoleInstance] Console is powered off before ejecting cartridge.");
-            }
-
-            insertedCartridge = null;
-            emulatorInstance.Current.DeInitialize();
-            SetOperationalState(ConsoleOperationalState.Off);
-            SetPhysicalState(ConsolePhysicalState.Loose);
-        }
-        #endregion
-
-        #region Emulator Management\
-        private void InitializeEmulator()
-        {
-            if (emulatorInstance == null || consoleDefinition == null)
-            {
-                Log.Error("[ConsoleInstance] Emulator instance or console definition is not set.");
+                Log.Warn("[ConsoleInstance] Cannot eject cartridge while emulator is running. Please PowerOff first.");
                 return;
             }
 
+            // safe to deinitialize and remove cartridge
+            try
+            {
+                if (emulatorInstance?.Current != null)
+                {
+                    emulatorInstance.Current.DeInitialize();
+                    emulatorInstance.Current.Renderer = null;
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Warn($"[ConsoleInstance] Swallowed exception during DeInitialize: {ex.Message}");
+            }
+
+            // clear cartridge
+            var romName = insertedCartridge.cartridgeDefinition?.romName;
+            insertedCartridge = null;
+
+            // if console still powered (e.g., was Standby) remain in Standby; otherwise Off
+            if (IsPowered())
+            {
+                SetOperationalState(ConsoleOperationalState.Standby);
+            }
+            else
+            {
+                SetOperationalState(ConsoleOperationalState.Off);
+            }
+
+            SetPhysicalState(ConsolePhysicalState.Loose);
+
+            Log.Info($"[ConsoleInstance] Cartridge '{romName}' ejected.");
+        }
+        #endregion
+
+        #region Emulator Handling
+        private bool InitializeEmulator()
+        {
+            if (emulatorInstance == null || consoleDefinition == null || insertedCartridge == null)
+            {
+                Log.Error("[ConsoleInstance] InitializeEmulator: preconditions not met (emulator/def/cart missing).");
+                return false;
+            }
+
             emulatorInstance.Current.Initialize(CoreToUse(), insertedCartridge.cartridgeDefinition.romsDirectory, insertedCartridge.cartridgeDefinition.romName);
-            emulatorInstance.Current.Renderer = screenInstance.screenRenderer;
-            emulatorInstance.Current.Collider = screenInstance.screenCollider;
+            emulatorInstance.Current.Renderer = screenInstance?.screenRenderer;
+            emulatorInstance.Current.Collider = screenInstance?.screenCollider;
+            return true;
         }
 
         private void DeInitializeEmulator()
@@ -227,10 +339,7 @@ namespace retrovr.system
         }
         #endregion
 
-        #region Input Management
-        #endregion
-
-        #region State Management
+        #region Internal Helpers
         /// <summary>
         /// Change the operational state of this console and fire events.
         /// Keep local reactions lightweight; heavy VFX / audio should live in a manager.
@@ -247,7 +356,6 @@ namespace retrovr.system
             switch (operationalState)
             {
                 case ConsoleOperationalState.Initializing:
-                    TryPlayOneShot(clipPowerOn);
                     // optionally notify screen to enter Booting (via screenInstance)
                     if (screenInstance != null)
                         Log.Info("[ConsoleInstance] Screen would enter Booting state here.");
@@ -313,8 +421,10 @@ namespace retrovr.system
         /// </summary>
         private void TryPlayOneShot(AudioClip clip)
         {
+            if (!playAudio) return;
             if (clip == null || feedbackAudioSource == null) return;
             feedbackAudioSource.PlayOneShot(clip);
+
         }
 
         /// <summary>
@@ -337,6 +447,67 @@ namespace retrovr.system
             // timed out
             Log.Warn("[ConsoleInstance] Timeout waiting for emulator to report Running.");
             SetOperationalState(ConsoleOperationalState.Error);
+        }
+
+        /// <summary>
+        /// Waits until the Libretro instance reports Off and deinitialized or times out.
+        /// </summary>
+        private IEnumerator WaitForEmulatorOffCoroutine(float timeoutSeconds = 5f)
+        {
+            float t = 0f;
+            while (t < timeoutSeconds)
+            {
+                if (emulatorInstance != null && emulatorInstance.Current != null && !emulatorInstance.Current.Running)
+                {
+                    DeInitializeEmulator();
+                    SetOperationalState(ConsoleOperationalState.Off);
+                    yield break;
+                }
+                t += Time.deltaTime;
+                yield return null;
+            }
+
+            // timed out
+            Log.Warn("[ConsoleInstance] Timeout waiting for emulator to report Off.");
+            SetOperationalState(ConsoleOperationalState.Error);
+        }
+
+        /// <summary>
+        /// Returns true if the console is considered powered (not Off and not Error).
+        /// This is a lightweight "powered" concept separate from emulator running.
+        /// </summary>
+        private bool IsPowered()
+        {
+            return operationalState != ConsoleOperationalState.Off &&
+                operationalState != ConsoleOperationalState.Error &&
+                operationalState != ConsoleOperationalState.ShuttingDown;
+        }
+
+        /// <summary>
+        /// Convenience wrapper for push-style buttons.
+        /// If console is powered -> PowerOff(); otherwise -> PowerOn() (or Standby if no cartridge).
+        /// </summary>
+        public void Power()
+        {
+            // If currently in the middle of starting/shutting it's safer to ignore toggle requests
+            if (operationalState == ConsoleOperationalState.Initializing || operationalState == ConsoleOperationalState.ShuttingDown)
+            {
+                Log.Warn("[ConsoleInstance] Power toggle ignored while transitioning.");
+                return;
+            }
+
+            bool wasPowered = IsPowered();
+
+            if (wasPowered && operationalState != ConsoleOperationalState.CartridgeInserted)
+            {
+                Log.Info("[ConsoleInstance] Power toggle: currently powered, toggling off.");
+                // If currently running or in standby, toggle off
+                PowerOff();
+                return;
+            }
+
+            PowerOn();
+
         }
         #endregion
     }
