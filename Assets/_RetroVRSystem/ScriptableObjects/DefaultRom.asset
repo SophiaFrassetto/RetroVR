@@ -12,8 +12,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6ad903d4fee85574abc54eea510fb44b, type: 3}
   m_Name: DefaultRom
   m_EditorClassIdentifier: 
-  romName: 'Super Mario World (U) [!]'
+  romName: Super Mario World (USA)
   romsDirectory: Assets/StreamingAssets/Roms
   savesDirectory: Assets/StreamingAssets/Saves
   overrideCoreName: 
-  extension: .smc
+  extension: .sfc

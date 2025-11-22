@@ -16,4 +16,5 @@ MonoBehaviour:
   coreName: snes9x
   supportedExtensions:
   - .smc
+  - .sfc
   isPortable: 0
