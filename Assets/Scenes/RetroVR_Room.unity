@@ -257,6 +257,11 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!82 &1049420017 stripped
+AudioSource:
+  m_CorrespondingSourceObject: {fileID: 2235094323370701840, guid: 9577f742531f8864490c9bee4141769e, type: 3}
+  m_PrefabInstance: {fileID: 1087225641}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1001 &1087225641
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -265,6 +270,18 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 0}
     m_Modifications:
+    - target: {fileID: 1524201506611710139, guid: 9577f742531f8864490c9bee4141769e, type: 3}
+      propertyPath: clickClip
+      value: 
+      objectReference: {fileID: 8300000, guid: 3869eb1ba5edab24cb3f437aaf7304fd, type: 3}
+    - target: {fileID: 1524201506611710139, guid: 9577f742531f8864490c9bee4141769e, type: 3}
+      propertyPath: tvAudioSource
+      value: 
+      objectReference: {fileID: 1049420017}
+    - target: {fileID: 1524201506611710139, guid: 9577f742531f8864490c9bee4141769e, type: 3}
+      propertyPath: staticLoopClip
+      value: 
+      objectReference: {fileID: 8300000, guid: 6d715a03a29f979418bea7037cc76e18, type: 3}
     - target: {fileID: 7934404809982514702, guid: 9577f742531f8864490c9bee4141769e, type: 3}
       propertyPath: m_Name
       value: Room
