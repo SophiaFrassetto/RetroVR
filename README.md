@@ -65,7 +65,7 @@ O fluxo completo já funciona:
 
 | Tecnologia        | Versão / Badge                                                                 |
 |-------------------|------------------------------------------------------------------------------|
-| Unity             | ![-Unity 6000.2.12f1](https://img.shields.io/badge/Unity-6000.1.14f1-blue.svg) |
+| Unity             | ![-Unity 6000.2.12f1](https://img.shields.io/badge/Unity-6000.2.12f1-blue.svg) |
 | XR Interaction Toolkit | ![XR Interaction Toolkit](https://img.shields.io/badge/XR%20Interaction%20Toolkit-3.1.2-blue.svg) |
 | OpenXR Plugin     | ![OpenXR Plugin](https://img.shields.io/badge/Open%20XR-1.15.1-blue.svg) |
 | Newtonsoft Json   | ![JSON](https://img.shields.io/badge/Newtonsofg%20Json-3.2.1-green.svg)                    |
