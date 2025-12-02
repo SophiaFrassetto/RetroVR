@@ -1,3 +1,5 @@
 ﻿<Solution>
   <Project Path="retrovr.system.csproj" />
+  <Project Path="Unity.XR.Interaction.Toolkit.Samples.InteractionSimulator.Editor.csproj" />
+  <Project Path="Unity.XR.Interaction.Toolkit.Samples.InteractionSimulator.csproj" />
 </Solution>

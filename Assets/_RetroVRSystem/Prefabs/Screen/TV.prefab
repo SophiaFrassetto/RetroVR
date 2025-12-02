@@ -467,7 +467,7 @@ MonoBehaviour:
   screenCollider: {fileID: 3810534287594144217}
   noSignalMaterial: {fileID: 0}
   staticTexture: {fileID: 0}
-  tvAudioSource: {fileID: 0}
+  tvAudioSource: {fileID: 8070561393532723417}
   staticLoopClip: {fileID: 0}
   clickClip: {fileID: 0}
 --- !u!1 &6144828822200582440
