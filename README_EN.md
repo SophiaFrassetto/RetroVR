@@ -65,15 +65,12 @@ The full flow already works:
 
 | Technology | Version / Badge |
 |------------|------------------|
-| Unity | ![-Unity 6000.2.12f1](https://img.shields.io/badge/Unity-6000.2.12f1-blue.svg) |
-| XR Interaction Toolkit | ![XR Interaction Toolkit](https://img.shields.io/badge/XR%20Interaction%20Toolkit-3.1.2-blue.svg) |
-| OpenXR Plugin | ![OpenXR Plugin](https://img.shields.io/badge/Open%20XR-1.15.1-blue.svg) |
-| Newtonsoft Json | ![JSON](https://img.shields.io/badge/Newtonsofg%20Json-3.2.1-green.svg) |
-| [SK.Libretro](https://github.com/Skurdt/SK.Libretro) | ![Libretro](https://img.shields.io/badge/Libretro-0.9.2-green.svg) |
+| Unity | ![-Unity 6000.0.64f1](https://img.shields.io/badge/Unity-6000.0.64f1-blue.svg) |
 | C# | ![C#](https://img.shields.io/badge/C%23-gray.svg?logo=c-sharp&logoColor=white) |
 
-> ⚠️ **Important Notice**  
-> The project was updated from Unity **6000.1.14f1** to **6000.2.12f1** due to security vulnerabilities found in the previous version.  
+> ⚠️ **Important Notice**
+> The project was updated from Unity **6000.1.14f1** to **6000.0.64f1** due to security vulnerabilities found in the previous version.
+> It was also changed from 6.1 to 6.0 to align with the version used by the Lib [SK.Libretro](https://github.com/Skurdt/SK.Libretro) and maintain maximum compatibility.
 > We strongly recommend contributors use only the current version to avoid compatibility issues and security risks.
 
 ---

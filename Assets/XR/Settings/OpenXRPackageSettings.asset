@@ -106,11 +106,7 @@ MonoBehaviour:
   m_spacewarpMotionVectorTextureFormat: 0
   m_optimizeBufferDiscards: 0
   m_symmetricProjection: 0
-  m_optimizeMultiviewRenderRegions: 0
-  m_multiviewRenderRegionsOptimizationMode: 0
-  m_hasMigratedMultiviewRenderRegionSetting: 1
   m_foveatedRenderingApi: 0
-  m_useOpenXRPredictedTime: 0
 --- !u!114 &-7905749500859742230
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -179,8 +175,6 @@ MonoBehaviour:
   lateLatchingMode: 0
   lateLatchingDebug: 0
   optimizeMultiviewRenderRegions: 0
-  m_multiviewRenderRegionsOptimizationMode: 0
-  m_hasMigratedMultiviewRenderRegions: 1
   spacewarpMotionVectorTextureFormat: 0
 --- !u!114 &-7495243001955357430
 MonoBehaviour:
@@ -880,7 +874,6 @@ MonoBehaviour:
   targetOpenXRApiVersion: 
   required: 0
   customRuntimeLoaderName: 
-  m_UseRightHandedNDC: 0
 --- !u!114 &1201395869065666832
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -916,7 +909,6 @@ MonoBehaviour:
   m_Name: Android
   m_EditorClassIdentifier: 
   features:
-  - {fileID: 1090697031054064050}
   - {fileID: 5639066214060487982}
   - {fileID: -8468135066670935435}
   - {fileID: 8420472617418030179}
@@ -944,11 +936,7 @@ MonoBehaviour:
   m_spacewarpMotionVectorTextureFormat: 0
   m_optimizeBufferDiscards: 0
   m_symmetricProjection: 0
-  m_optimizeMultiviewRenderRegions: 0
-  m_multiviewRenderRegionsOptimizationMode: 0
-  m_hasMigratedMultiviewRenderRegionSetting: 1
   m_foveatedRenderingApi: 0
-  m_useOpenXRPredictedTime: 0
 --- !u!114 &1345393275699436933
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1138,11 +1126,7 @@ MonoBehaviour:
   m_spacewarpMotionVectorTextureFormat: 0
   m_optimizeBufferDiscards: 0
   m_symmetricProjection: 0
-  m_optimizeMultiviewRenderRegions: 0
-  m_multiviewRenderRegionsOptimizationMode: 0
-  m_hasMigratedMultiviewRenderRegionSetting: 1
   m_foveatedRenderingApi: 0
-  m_useOpenXRPredictedTime: 0
 --- !u!114 &5347575923237885917
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1433,11 +1417,7 @@ MonoBehaviour:
   m_spacewarpMotionVectorTextureFormat: 0
   m_optimizeBufferDiscards: 0
   m_symmetricProjection: 0
-  m_optimizeMultiviewRenderRegions: 0
-  m_multiviewRenderRegionsOptimizationMode: 0
-  m_hasMigratedMultiviewRenderRegionSetting: 1
   m_foveatedRenderingApi: 0
-  m_useOpenXRPredictedTime: 0
 --- !u!114 &8096418767314067958
 MonoBehaviour:
   m_ObjectHideFlags: 0
