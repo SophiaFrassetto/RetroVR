@@ -11,11 +11,6 @@ O projeto é **standalone**, não precisa de PC para rodar, e é focado em uma e
 
 ---
 
-## 🌎 Read this in English
-➡️ [README_EN.md](./README_EN.md)
-
----
-
 ## ✨ Principais Funcionalidades
 
 - Emulação de consoles retrô via **Libretro**.
@@ -65,12 +60,11 @@ O fluxo completo já funciona:
 
 | Tecnologia        | Versão / Badge                                                                 |
 |-------------------|------------------------------------------------------------------------------|
-| Unity             | ![-Unity 6000.0.64f1](https://img.shields.io/badge/Unity-6000.0.64f1-blue.svg) |          |
+| Unity             | ![-Unity 6000.3.2f1](https://img.shields.io/badge/Unity-6000.3.2f1-blue.svg) |          |
 | C#                | ![C#](https://img.shields.io/badge/C%23-gray.svg?logo=c-sharp&logoColor=white) |
 
 > ⚠️ **Aviso importante**
-> O projeto foi atualizado da Unity **6000.1.14f1** para **6000.0.64f1** devido a vulnerabilidades de segurança identificadas na versão anterior.
-> Também foi alterado do 6.1 para o 6.0 para se alinhar com a versão utilizada pela Lib [SK.Libretro](https://github.com/Skurdt/SK.Libretro) e manter o maximo de compatibilidade.
+> O projeto foi atualizado da Unity **6000.1.14f1** para **6000.3.2f1** devido a vulnerabilidades de segurança identificadas na versão anterior.
 > Recomendamos fortemente que contribuidores utilizem apenas a versão atual para evitar problemas de compatibilidade e riscos de segurança.
 
 
@@ -96,24 +90,6 @@ com.unity.RetroVR/
 
 1. Baixe o APK na seção de **Releases**.
 2. Instale no Meta Quest usando o **SideQuest**.
-
----
-
-## 🗺️ Roadmap
-
-O roadmap completo foi movido para arquivos separados:
-
-- 🇧🇷 Português: [ROADMAP.md](./ROADMAP.md)
-- 🇺🇸 English: [ROADMAP_EN.md](./ROADMAP_EN.md)
-
----
-
-## 🤲 Como Contribuir
-
-O guia de contribuição também está separado:
-
-- 🇧🇷 Português: [CONTRIBUTING.md](./CONTRIBUTING.md)
-- 🇺🇸 English: [CONTRIBUTING_EN.md](./CONTRIBUTING_EN.md)
 
 ---
 

@@ -18,6 +18,8 @@ MonoBehaviour:
   - Roms
   - ButtonTrigger
   - 
+  - PlugVideo
+  - PlugEnergy
   - 
   - 
   - 
@@ -42,6 +44,4 @@ MonoBehaviour:
   - 
   - 
   - 
-  - 
-  - 
-  - 
+  - Teleport

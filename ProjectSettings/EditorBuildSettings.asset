@@ -9,6 +9,8 @@ EditorBuildSettings:
     path: Assets/Scenes/RetroVR_Room.unity
     guid: a70c6a367c84727459e1b619518a6f29
   m_configObjects:
+    Unity.XR.Oculus.Settings: {fileID: 11400000, guid: 854576c6fb571cd44928868512118c49, type: 2}
+    com.unity.dt.app-ui: {fileID: 11400000, guid: 1b1c20d82303e4b5781c3ef50ac1449f, type: 2}
     com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 289c1b55c9541489481df5cc06664110, type: 3}
     com.unity.xr.management.loader_settings: {fileID: 11400000, guid: 5b1673b2064ceed859af386cc9c4ef12, type: 2}
     com.unity.xr.openxr.settings4: {fileID: 11400000, guid: 295c5a2a922666d41b8e52d5282cb0d5, type: 2}

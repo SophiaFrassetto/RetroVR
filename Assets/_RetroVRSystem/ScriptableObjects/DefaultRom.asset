@@ -13,7 +13,6 @@ MonoBehaviour:
   m_Name: DefaultRom
   m_EditorClassIdentifier: 
   romName: Super Mario World (USA)
-  romsDirectory: Assets/StreamingAssets/Roms
-  savesDirectory: Assets/StreamingAssets/Saves
+  romSubfolder: snes
   overrideCoreName: 
   extension: .sfc

@@ -5,6 +5,7 @@ using UnityEngine;
 using TMPro;
 using SK.Libretro.Unity;
 using UnityEngine.XR.Interaction.Toolkit;
+using System.IO;
 
 namespace retrovr.system
 {
@@ -70,9 +71,32 @@ namespace retrovr.system
         #endregion
 
         #region Console Handling
+
+        public void AttachScreen(ScreenInstance screen)
+        {
+            screenInstance = screen;
+            SetPhysicalState(ConsolePhysicalState.ConnectedToScreen);
+            screen.SetOperationalState(ScreenOperationalState.NoSignal);
+        }
+
+        public void DetachScreen()
+        {
+            screenInstance.SetOperationalState(ScreenOperationalState.Standby);
+            screenInstance = null;
+            SetPhysicalState(ConsolePhysicalState.Loose);
+        }
         private bool GetRunningState()
         {
             return emulatorInstance.Current.Running;
+        }
+
+        public void SetDefinition(ConsoleDefinition definition)
+        {
+            consoleDefinition = definition;
+            if (displayConsoleName != null && consoleDefinition != null)
+            {
+                displayConsoleName.text = consoleDefinition.consoleName;
+            }
         }
 
         private bool CanAcceptCartridge(CartridgeDefinition cartridgeDefinition)
@@ -319,8 +343,11 @@ namespace retrovr.system
                 Log.Error("[ConsoleInstance] InitializeEmulator: preconditions not met (emulator/def/cart missing).");
                 return false;
             }
+            CartridgeDefinition cartDef = insertedCartridge.cartridgeDefinition;
 
-            emulatorInstance.Current.Initialize(CoreToUse(), insertedCartridge.cartridgeDefinition.romsDirectory, insertedCartridge.cartridgeDefinition.romName);
+            string romPath = Path.Combine(Application.persistentDataPath, "roms", cartDef.romSubfolder);
+            emulatorInstance.Current.Initialize(CoreToUse(), romPath, cartDef.romName);
+
             emulatorInstance.Current.Renderer = screenInstance?.screenRenderer;
             emulatorInstance.Current.Collider = screenInstance?.screenCollider;
             return true;

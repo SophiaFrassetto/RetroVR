@@ -6,8 +6,7 @@ namespace retrovr.system
     public class CartridgeDefinition : ScriptableObject
     {
         public string romName;
-        public string romsDirectory;
-        public string savesDirectory;
+        public string romSubfolder;
         public string overrideCoreName;
         public string extension;
 
