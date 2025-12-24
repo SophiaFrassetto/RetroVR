@@ -304,6 +304,7 @@ namespace retrovr.system
             }
 
             SetPhysicalState(ConsolePhysicalState.Loose);
+            PowerOff();
 
             Log.Info($"[ConsoleInstance] Cartridge '{romName}' ejected.");
         }
