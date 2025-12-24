@@ -71,7 +71,6 @@ namespace retrovr.system
         #endregion
 
         #region Console Handling
-
         public void AttachScreen(ScreenInstance screen)
         {
             screenInstance = screen;
@@ -84,10 +83,6 @@ namespace retrovr.system
             screenInstance.SetOperationalState(ScreenOperationalState.Standby);
             screenInstance = null;
             SetPhysicalState(ConsolePhysicalState.Loose);
-        }
-        private bool GetRunningState()
-        {
-            return emulatorInstance.Current.Running;
         }
 
         public void SetDefinition(ConsoleDefinition definition)
@@ -126,6 +121,12 @@ namespace retrovr.system
             if (consoleDefinition == null)
             {
                 Log.Error("[ConsoleInstance] Console definition is not set.");
+                return;
+            }
+
+            if (screenInstance == null)
+            {
+                Log.Error("[ConsoleInstance] Screen instance is not set.");
                 return;
             }
 
@@ -218,15 +219,11 @@ namespace retrovr.system
         #region Cartridge Handling
         public void InsertCartridge(SelectEnterEventArgs args)
         {
-            // Do not allow insert if we already have a cartridge
             if (insertedCartridge != null)
             {
                 Log.Warn("[ConsoleInstance] A cartridge is already inserted. Eject before inserting a new one.");
                 return;
             }
-
-            // capture powered state BEFORE we change any operational state
-            bool wasPowered = IsPowered();
 
             var interactorable = args.interactableObject;
             if (interactorable == null)
@@ -255,35 +252,12 @@ namespace retrovr.system
                 return;
             }
 
-            // Accept cartridge into slot (physical + logical)
             insertedCartridge = cartridgeInstance;
             SetPhysicalState(ConsolePhysicalState.Placed);
             SetOperationalState(ConsoleOperationalState.CartridgeInserted);
             TryPlayOneShot(clipInsertCartridge);
 
             Log.Info($"[ConsoleInstance] Cartridge '{insertedCartridge.cartridgeDefinition.romName}' inserted.");
-
-            // Use the value captured BEFORE we set CartridgeInserted
-            if (wasPowered)
-            {
-                // If already running ignore; otherwise initialize/start
-                if (operationalState != ConsoleOperationalState.Running)
-                {
-                    SetOperationalState(ConsoleOperationalState.Initializing);
-
-                    // attempt initialization; only start content if initialization succeeded
-                    if (InitializeEmulator())
-                    {
-                        emulatorInstance.StartContent();
-                        StartCoroutine(WaitForEmulatorRunningCoroutine(5f));
-                    }
-                    else
-                    {
-                        Log.Error("[ConsoleInstance] Initialization failed: preconditions not met (emulator/def/cart missing).");
-                        SetOperationalState(ConsoleOperationalState.Error);
-                    }
-                }
-            }
         }
 
         public void EjectCartridge()
@@ -367,10 +341,6 @@ namespace retrovr.system
         #endregion
 
         #region Internal Helpers
-        /// <summary>
-        /// Change the operational state of this console and fire events.
-        /// Keep local reactions lightweight; heavy VFX / audio should live in a manager.
-        /// </summary>
         public void SetOperationalState(ConsoleOperationalState newState)
         {
             if (operationalState == newState) return;
@@ -413,9 +383,6 @@ namespace retrovr.system
             }
         }
 
-        /// <summary>
-        /// Change the physical state (Held, Placed, Connected) of the console.
-        /// </summary>
         public void SetPhysicalState(ConsolePhysicalState newState)
         {
             if (physicalState == newState) return;
@@ -443,9 +410,6 @@ namespace retrovr.system
             }
         }
 
-        /// <summary>
-        /// Play a one-shot audio clip if available.
-        /// </summary>
         private void TryPlayOneShot(AudioClip clip)
         {
             if (!playAudio) return;
@@ -454,9 +418,6 @@ namespace retrovr.system
 
         }
 
-        /// <summary>
-        /// Waits until the Libretro instance reports Running or times out.
-        /// </summary>
         private IEnumerator WaitForEmulatorRunningCoroutine(float timeoutSeconds = 5f)
         {
             float t = 0f;
@@ -476,9 +437,6 @@ namespace retrovr.system
             SetOperationalState(ConsoleOperationalState.Error);
         }
 
-        /// <summary>
-        /// Waits until the Libretro instance reports Off and deinitialized or times out.
-        /// </summary>
         private IEnumerator WaitForEmulatorOffCoroutine(float timeoutSeconds = 5f)
         {
             float t = 0f;
@@ -499,10 +457,6 @@ namespace retrovr.system
             SetOperationalState(ConsoleOperationalState.Error);
         }
 
-        /// <summary>
-        /// Returns true if the console is considered powered (not Off and not Error).
-        /// This is a lightweight "powered" concept separate from emulator running.
-        /// </summary>
         private bool IsPowered()
         {
             return operationalState != ConsoleOperationalState.Off &&
@@ -510,10 +464,6 @@ namespace retrovr.system
                 operationalState != ConsoleOperationalState.ShuttingDown;
         }
 
-        /// <summary>
-        /// Convenience wrapper for push-style buttons.
-        /// If console is powered -> PowerOff(); otherwise -> PowerOn() (or Standby if no cartridge).
-        /// </summary>
         public void Power()
         {
             // If currently in the middle of starting/shutting it's safer to ignore toggle requests
