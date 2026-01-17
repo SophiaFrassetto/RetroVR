@@ -10,7 +10,7 @@ namespace RetroLib.Libretro
     public class RetroCoreLibretro : IRetroCore
     {
         private Texture2D videoTexture;
-        private bool running;
+        private LibretroCoreState state = LibretroCoreState.Created;
 
         private static byte[] frameBuffer;
         private static int frameWidth;
@@ -20,54 +20,94 @@ namespace RetroLib.Libretro
 
         public bool LoadCore(string corePath)
         {
-            // 1. Registrar environment PRIMEIRO
+            Debug.Log("[Libretro] Setting environment");
             LibretroNative.retro_set_environment(LibretroEnvironment.OnEnvironment);
+            state = LibretroCoreState.EnvironmentReady;
 
-            // 2. Agora sim inicializar o core
+            Debug.Log("[Libretro] Init core");
             LibretroNative.retro_init();
+            state = LibretroCoreState.CoreInitialized;
 
-            // 3. Registrar callbacks de vídeo
             videoCallback = OnVideoRefresh;
             LibretroNative.retro_set_video_refresh(videoCallback);
 
-            // 4. Debug
             uint api = LibretroNative.retro_api_version();
             Debug.Log($"[Libretro] API version: {api}");
 
-            videoCallback = OnVideoRefresh;
-            LibretroNative.retro_set_video_refresh(videoCallback);
+            LibretroNative.retro_system_info sysInfo;
+            LibretroNative.retro_get_system_info(out sysInfo);
+
+            string libName = Marshal.PtrToStringAnsi(sysInfo.library_name);
+            Debug.Log($"[Libretro] System: {libName}");
+            string libVersion = Marshal.PtrToStringAnsi(sysInfo.library_version);
+            Debug.Log($"[Libretro] Version: {libVersion}");
+            string extensions = Marshal.PtrToStringAnsi(sysInfo.valid_extensions);
+            Debug.Log($"[Libretro] Extensions: {extensions}");
+
+            Debug.Log($"[Libretro] Needs Full Path: {sysInfo.need_fullpath}");
 
             return true;
         }
 
         public bool LoadRom(string romPath)
         {
-            // Ainda não implementado (retro_load_game)
-            Debug.Log("[Libretro] ROM loading skipped for now");
-            return true;
+            Debug.Log($"[Libretro] Loading rom: {romPath}");
+
+            var game = new LibretroNative.retro_game_info
+            {
+                path = Marshal.StringToHGlobalAnsi(romPath),
+                data = IntPtr.Zero,
+                size = UIntPtr.Zero,
+                meta = IntPtr.Zero
+            };
+
+            bool result = LibretroNative.retro_load_game(ref game);
+
+            Marshal.FreeHGlobal(game.path);
+
+            Debug.Log($"[Libretro] Rom loaded: {result}");
+            return result;
         }
 
         public void StartEmulation()
         {
-            running = true;
+            if (state < LibretroCoreState.CoreInitialized)
+            {
+                Debug.LogWarning("[Libretro] Cannot start emulation yet");
+                return;
+            }
+
+            state = LibretroCoreState.Running;
+            DebugStats.CoreRunning = true;
         }
 
         public void StopEmulation()
         {
-            running = false;
+            Debug.Log("[Libretro] Stop");
+            state = LibretroCoreState.Created;
+            DebugStats.CoreRunning = false;
             LibretroNative.retro_deinit();
         }
 
-        public bool IsRunning => running;
+        public bool IsRunning => state == LibretroCoreState.Running;
 
-        public Texture GetVideoTexture()
+        // 🔑 EXECUTION SEPARADO
+        public bool RunFrame()
         {
-            if (!running)
-                return null;
+            if (state != LibretroCoreState.Running)
+                return false;
 
             LibretroNative.retro_run();
+            return true;
+        }
 
-            if (videoTexture == null && frameWidth > 0)
+        // 🎥 APENAS RETORNA O FRAME
+        public Texture GetVideoTexture()
+        {
+            if (frameWidth <= 0 || frameHeight <= 0)
+                return null;
+
+            if (videoTexture == null)
             {
                 videoTexture = new Texture2D(
                     frameWidth,
@@ -78,7 +118,7 @@ namespace RetroLib.Libretro
                 videoTexture.filterMode = FilterMode.Point;
             }
 
-            if (videoTexture != null && frameBuffer != null)
+            if (frameBuffer != null)
             {
                 videoTexture.LoadRawTextureData(frameBuffer);
                 videoTexture.Apply();
@@ -88,7 +128,6 @@ namespace RetroLib.Libretro
         }
 
         // ===== Video Callback =====
-
         private static void OnVideoRefresh(
             IntPtr data,
             uint width,
@@ -111,7 +150,6 @@ namespace RetroLib.Libretro
         }
 
         // ===== Audio placeholders =====
-
         public int GetSampleRate() => 32040;
         public int GetAudioChannels() => 2;
         public float[] GetAudioBuffer() => null;

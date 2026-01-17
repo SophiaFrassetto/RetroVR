@@ -36,12 +36,20 @@ namespace RetroLib.Core
 
         public bool IsRunning => running;
 
+        // 🔑 NOVO MÉTODO (OBRIGATÓRIO AGORA)
+        public bool RunFrame()
+        {
+            if (!running || texture == null)
+                return false;
+
+            time += Time.deltaTime;
+            return true;
+        }
+
         public Texture GetVideoTexture()
         {
             if (!running || texture == null)
                 return null;
-
-            time += Time.deltaTime;
 
             for (int y = 0; y < texture.height; y++)
             {

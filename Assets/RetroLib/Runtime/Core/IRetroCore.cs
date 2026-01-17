@@ -2,10 +2,6 @@ using UnityEngine;
 
 namespace RetroLib.Core
 {
-    /// <summary>
-    /// Interface base para qualquer implementação de core (Libretro ou mock).
-    /// Esta interface NÃO conhece Unity VR, física ou cena.
-    /// </summary>
     public interface IRetroCore
     {
         // Lifecycle
@@ -17,10 +13,13 @@ namespace RetroLib.Core
 
         bool IsRunning { get; }
 
+        // Execution
+        bool RunFrame();
+
         // Video
         Texture GetVideoTexture();
 
-        // Audio (placeholder por enquanto)
+        // Audio (placeholder)
         int GetSampleRate();
         int GetAudioChannels();
         float[] GetAudioBuffer();

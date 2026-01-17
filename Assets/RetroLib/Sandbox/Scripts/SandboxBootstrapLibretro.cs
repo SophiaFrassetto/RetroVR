@@ -9,16 +9,47 @@ namespace RetroLib.Sandbox
     {
         [SerializeField] private RetroLibManager manager;
 
+        private RetroCoreLibretro core;
+
+        void Awake()
+        {
+            if (manager == null)
+            {
+                Debug.LogError("[SandboxBootstrapLibretro] Manager not assigned");
+                enabled = false;
+                return;
+            }
+
+            core = new RetroCoreLibretro();
+            manager.SetCore(core);
+        }
+
+        void Update()
+        {
+            if (Input.GetKeyDown(KeyCode.F5))
+            {
+                StartLibretro();
+            }
+        }
+
         void Start()
         {
-            var core = new RetroCoreLibretro();
+            // ⚠️ NÃO inicializar Libretro pesado aqui automaticamente
+            Debug.Log("[SandboxBootstrapLibretro] Ready. Waiting for manual start.");
+        }
+
+        // 🔑 Chame isso manualmente depois (botão, tecla, menu)
+        public void StartLibretro()
+        {
+            Debug.Log("[SandboxBootstrapLibretro] Starting Libretro");
 
             core.LoadCore("snes9x_libretro.dll");
-            core.LoadRom("dummy");
 
-            core.StartEmulation();
+            string romPath = LibretroPaths.GetRomPath("snes", "Super Mario World (U) [!].smc");
 
-            manager.SetCore(core);
+            core.LoadRom(romPath);
+
+            Debug.Log("[SandboxBootstrapLibretro] Game loaded, ready to run");
         }
     }
 }
