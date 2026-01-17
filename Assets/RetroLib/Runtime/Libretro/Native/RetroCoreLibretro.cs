@@ -3,55 +3,77 @@ using System.Runtime.InteropServices;
 using UnityEngine;
 using RetroLib.Core;
 using RetroLib.Libretro.Native;
-using RetroLib.Debugging;
 
 namespace RetroLib.Libretro
 {
     public class RetroCoreLibretro : IRetroCore
     {
+        private LibretroCoreState state;
+
+        // vídeo
+        private byte[] videoBuffer;
+        private int videoWidth;
+        private int videoHeight;
+        private bool frameReady;
+
         private Texture2D videoTexture;
-        private LibretroCoreState state = LibretroCoreState.Created;
 
-        private static byte[] frameBuffer;
-        private static int frameWidth;
-        private static int frameHeight;
+        // callbacks mantidos vivos
+        private LibretroNative.VideoRefreshCallback videoCb;
+        private LibretroNative.InputPollCallback inputPollCb;
+        private LibretroNative.InputStateCallback inputStateCb;
+        private LibretroNative.AudioSampleCallback audioCb;
+        // áudio
+        private float[] audioBuffer;
+        private int audioFrames;
+        private bool audioReady;
+        private int sampleRate;
 
-        private LibretroNative.VideoRefreshCallback videoCallback;
+        private const int AUDIO_RING_SIZE = 44100 * 2; // 1 segundo stereo
+        private float[] audioRing = new float[AUDIO_RING_SIZE];
+        private int audioWritePos;
+        private int audioReadPos;
+
+
+        // manter delegate vivo (CRÍTICO)
+        private LibretroNative.AudioSampleBatchCallback audioBatchCb;
+        public void SetState(LibretroCoreState coreState)
+        {
+            state = coreState;
+        }
 
         public bool LoadCore(string corePath)
         {
-            Debug.Log("[Libretro] Setting environment");
+            if (state == null) return false;
+
+            LibretroEnvironment.BindState(state);
             LibretroNative.retro_set_environment(LibretroEnvironment.OnEnvironment);
-            state = LibretroCoreState.EnvironmentReady;
 
-            Debug.Log("[Libretro] Init core");
+            // callbacks mínimos obrigatórios
+            videoCb = OnVideoRefresh;
+            inputPollCb = () => { };
+            inputStateCb = (a, b, c, d) => 0;
+            audioCb = (l, r) => { };
+
+            LibretroNative.retro_set_video_refresh(videoCb);
+            LibretroNative.retro_set_input_poll(inputPollCb);
+            LibretroNative.retro_set_input_state(inputStateCb);
+            LibretroNative.retro_set_audio_sample(audioCb);
+
+            audioBatchCb = OnAudioSampleBatch;
+            LibretroNative.retro_set_audio_sample_batch(audioBatchCb);
+
             LibretroNative.retro_init();
-            state = LibretroCoreState.CoreInitialized;
 
-            videoCallback = OnVideoRefresh;
-            LibretroNative.retro_set_video_refresh(videoCallback);
-
-            uint api = LibretroNative.retro_api_version();
-            Debug.Log($"[Libretro] API version: {api}");
-
-            LibretroNative.retro_system_info sysInfo;
-            LibretroNative.retro_get_system_info(out sysInfo);
-
-            string libName = Marshal.PtrToStringAnsi(sysInfo.library_name);
-            Debug.Log($"[Libretro] System: {libName}");
-            string libVersion = Marshal.PtrToStringAnsi(sysInfo.library_version);
-            Debug.Log($"[Libretro] Version: {libVersion}");
-            string extensions = Marshal.PtrToStringAnsi(sysInfo.valid_extensions);
-            Debug.Log($"[Libretro] Extensions: {extensions}");
-
-            Debug.Log($"[Libretro] Needs Full Path: {sysInfo.need_fullpath}");
-
+            sampleRate = state.AudioSampleRate;
+            state.Lifecycle = LibretroLifecycleState.CoreInitialized;
             return true;
         }
 
         public bool LoadRom(string romPath)
         {
-            Debug.Log($"[Libretro] Loading rom: {romPath}");
+            if (state.Lifecycle != LibretroLifecycleState.CoreInitialized)
+                return false;
 
             var game = new LibretroNative.retro_game_info
             {
@@ -61,97 +83,157 @@ namespace RetroLib.Libretro
                 meta = IntPtr.Zero
             };
 
-            bool result = LibretroNative.retro_load_game(ref game);
-
+            bool ok = LibretroNative.retro_load_game(ref game);
             Marshal.FreeHGlobal(game.path);
 
-            Debug.Log($"[Libretro] Rom loaded: {result}");
-            return result;
+            state.GameLoaded = ok;
+            state.Lifecycle = ok
+                ? LibretroLifecycleState.GameLoaded
+                : LibretroLifecycleState.Error;
+
+            return ok;
         }
 
         public void StartEmulation()
         {
-            if (state < LibretroCoreState.CoreInitialized)
-            {
-                Debug.LogWarning("[Libretro] Cannot start emulation yet");
+            if (!state.GameLoaded)
                 return;
-            }
 
-            state = LibretroCoreState.Running;
-            DebugStats.CoreRunning = true;
+            state.Running = true;
+            state.Lifecycle = LibretroLifecycleState.Running;
         }
 
         public void StopEmulation()
         {
-            Debug.Log("[Libretro] Stop");
-            state = LibretroCoreState.Created;
-            DebugStats.CoreRunning = false;
+            state.Running = false;
+            state.Lifecycle = LibretroLifecycleState.Created;
+
             LibretroNative.retro_deinit();
+            LibretroEnvironment.Cleanup();
         }
 
-        public bool IsRunning => state == LibretroCoreState.Running;
+        public bool IsRunning => state != null && state.Running;
 
-        // 🔑 EXECUTION SEPARADO
+        // 🔑 EXECUÇÃO SEGURA: chamada pelo Manager no Update
         public bool RunFrame()
         {
-            if (state != LibretroCoreState.Running)
+            if (!IsRunning)
                 return false;
 
             LibretroNative.retro_run();
             return true;
         }
 
-        // 🎥 APENAS RETORNA O FRAME
         public Texture GetVideoTexture()
         {
-            if (frameWidth <= 0 || frameHeight <= 0)
+            if (!frameReady || videoBuffer == null)
                 return null;
 
-            if (videoTexture == null)
+            if (videoTexture == null ||
+                videoTexture.width != videoWidth ||
+                videoTexture.height != videoHeight)
             {
                 videoTexture = new Texture2D(
-                    frameWidth,
-                    frameHeight,
-                    TextureFormat.RGBA32,
+                    videoWidth,
+                    videoHeight,
+                    TextureFormat.RGB565,
                     false
                 );
                 videoTexture.filterMode = FilterMode.Point;
             }
 
-            if (frameBuffer != null)
-            {
-                videoTexture.LoadRawTextureData(frameBuffer);
-                videoTexture.Apply();
-            }
+            videoTexture.LoadRawTextureData(videoBuffer);
+            videoTexture.Apply(false);
 
+            frameReady = false;
             return videoTexture;
         }
 
-        // ===== Video Callback =====
-        private static void OnVideoRefresh(
-            IntPtr data,
-            uint width,
-            uint height,
-            ulong pitch
-        )
+        // ⚠️ CALLBACK SIMPLES E SEGURO
+        private void OnVideoRefresh(IntPtr data, uint w, uint h, ulong pitch)
         {
-            int size = (int)(height * pitch);
+            if (data == IntPtr.Zero)
+                return;
 
-            if (frameBuffer == null || frameBuffer.Length != size)
-                frameBuffer = new byte[size];
+            int rowSize = (int)w * 2; // RGB565
+            int size = rowSize * (int)h;
 
-            Marshal.Copy(data, frameBuffer, 0, size);
+            if (videoBuffer == null || videoBuffer.Length != size)
+                videoBuffer = new byte[size];
 
-            frameWidth = (int)width;
-            frameHeight = (int)height;
+            for (int y = 0; y < h; y++)
+            {
+                IntPtr src = IntPtr.Add(data, y * (int)pitch);
+                Marshal.Copy(src, videoBuffer, y * rowSize, rowSize);
+            }
 
-            DebugStats.VideoWidth = frameWidth;
-            DebugStats.VideoHeight = frameHeight;
+            videoWidth = (int)w;
+            videoHeight = (int)h;
+            frameReady = true;
+
+            state.VideoWidth = videoWidth;
+            state.VideoHeight = videoHeight;
+            state.PixelFormat = "RGB565";
         }
 
-        // ===== Audio placeholders =====
-        public int GetSampleRate() => 32040;
-        public int GetAudioChannels() => 2;
+        private UIntPtr OnAudioSampleBatch(IntPtr data, UIntPtr frames)
+        {
+            int frameCount = (int)frames;
+            int samples = frameCount * 2; // estéreo: L + R
+
+            if (audioBuffer == null || audioBuffer.Length < samples)
+                audioBuffer = new float[samples];
+
+            for (int i = 0; i < samples; i++)
+            {
+                short sample = Marshal.ReadInt16(data, i * 2);
+                audioBuffer[i] = sample / 32768f;
+            }
+
+            audioFrames = frameCount * 2; // samples reais
+            audioReady = true;
+
+            for (int i = 0; i < samples; i++)
+            {
+                short sample = Marshal.ReadInt16(data, i * 2);
+                audioRing[audioWritePos] = sample / 32768f;
+                audioWritePos = (audioWritePos + 1) % AUDIO_RING_SIZE;
+            }
+
+            return frames;
+        }
+
+        public bool TryGetAudio(out float[] buffer)
+        {
+            if (!audioReady)
+            {
+                buffer = null;
+                return false;
+            }
+
+            buffer = audioBuffer;
+            audioReady = false;
+            return true;
+        }
+
+        public void ReadAudio(float[] output, int length)
+        {
+            for (int i = 0; i < length; i++)
+            {
+                if (audioReadPos != audioWritePos)
+                {
+                    output[i] = audioRing[audioReadPos];
+                    audioReadPos = (audioReadPos + 1) % AUDIO_RING_SIZE;
+                }
+                else
+                {
+                    output[i] = 0f;
+                }
+            }
+        }
+
+        public int GetSampleRate() => 0;
+        public int GetAudioChannels() => 0;
         public float[] GetAudioBuffer() => null;
     }
 }

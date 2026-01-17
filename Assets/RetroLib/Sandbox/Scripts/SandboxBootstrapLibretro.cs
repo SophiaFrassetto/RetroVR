@@ -8,20 +8,12 @@ namespace RetroLib.Sandbox
     public class SandboxBootstrapLibretro : MonoBehaviour
     {
         [SerializeField] private RetroLibManager manager;
+        private bool started = false;
 
-        private RetroCoreLibretro core;
-
-        void Awake()
+        private void Start()
         {
-            if (manager == null)
-            {
-                Debug.LogError("[SandboxBootstrapLibretro] Manager not assigned");
-                enabled = false;
-                return;
-            }
-
-            core = new RetroCoreLibretro();
-            manager.SetCore(core);
+            manager = RetroLibManager.Instance;
+            Debug.Log("[SandboxBootstrapLibretro] Ready. Waiting for manual start.");
         }
 
         void Update()
@@ -32,24 +24,43 @@ namespace RetroLib.Sandbox
             }
         }
 
-        void Start()
-        {
-            // ⚠️ NÃO inicializar Libretro pesado aqui automaticamente
-            Debug.Log("[SandboxBootstrapLibretro] Ready. Waiting for manual start.");
-        }
-
-        // 🔑 Chame isso manualmente depois (botão, tecla, menu)
         public void StartLibretro()
         {
+            if (started)
+            {
+                Debug.Log("[Sandbox] Libretro already started");
+                return;
+            }
+            started = true;
+
+            if (manager == null)
+            {
+                Debug.LogWarning("[Sandbox] Manager/Core not ready");
+                return;
+            }
+
+            Debug.Log("[SandboxBootstrapLibretro] Starting Libretro");
+            manager.CreateCore();
+
+            var core = manager.core;
+            if (core == null)
+            {
+                Debug.LogError("[Sandbox] Core not available");
+                return;
+            }
+
             Debug.Log("[SandboxBootstrapLibretro] Starting Libretro");
 
-            core.LoadCore("snes9x_libretro.dll");
+            if (!core.LoadCore("snes9x_libretro.dll"))
+                return;
 
-            string romPath = LibretroPaths.GetRomPath("snes", "Super Mario World (U) [!].smc");
+            if (!core.LoadRom(
+                LibretroPaths.GetRomPath(
+                    "snes",
+                    "Super Mario World (U) [!].smc")))
+                return;
 
-            core.LoadRom(romPath);
-
-            Debug.Log("[SandboxBootstrapLibretro] Game loaded, ready to run");
+            core.StartEmulation();
         }
     }
 }

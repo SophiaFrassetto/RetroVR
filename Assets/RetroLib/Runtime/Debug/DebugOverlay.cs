@@ -1,45 +1,26 @@
 using UnityEngine;
-using System.Text;
 
 namespace RetroLib.Debugging
 {
-    public class DebugOverlay : MonoBehaviour
+    public abstract class DebugOverlay : MonoBehaviour
     {
-        public bool showOverlay = true;
-        public KeyCode toggleKey = KeyCode.F1;
+        public bool ShowOverlay = true;
+        public KeyCode ToggleKey = KeyCode.F1;
 
-        private float deltaTime;
-
-        void Update()
+        protected virtual void Update()
         {
-            if (Input.GetKeyDown(toggleKey))
-                showOverlay = !showOverlay;
-
-            deltaTime += (Time.unscaledDeltaTime - deltaTime) * 0.1f;
+            if (Input.GetKeyDown(ToggleKey))
+                ShowOverlay = !ShowOverlay;
         }
 
-        void OnGUI()
+        protected abstract void DrawOverlay();
+
+        protected virtual void OnGUI()
         {
-            if (!showOverlay)
+            if (!ShowOverlay)
                 return;
 
-            float fps = 1.0f / deltaTime;
-
-            GUILayout.BeginArea(new Rect(10, 10, 400, 400), GUI.skin.box);
-            GUILayout.Label("RetroLib Debug");
-            GUILayout.Space(5);
-
-            GUILayout.Label($"FPS: {fps:0.}");
-            GUILayout.Label($"Frame Time: {deltaTime * 1000f:0.0} ms");
-
-            DrawCustomStats();
-
-            GUILayout.EndArea();
-        }
-
-        protected virtual void DrawCustomStats()
-        {
-            // extensível
+            DrawOverlay();
         }
     }
 }

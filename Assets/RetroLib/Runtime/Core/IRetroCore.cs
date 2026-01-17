@@ -1,3 +1,4 @@
+using RetroLib.Libretro;
 using UnityEngine;
 
 namespace RetroLib.Core
@@ -10,6 +11,7 @@ namespace RetroLib.Core
 
         void StartEmulation();
         void StopEmulation();
+        void SetState(LibretroCoreState coreState);
 
         bool IsRunning { get; }
 
@@ -23,5 +25,7 @@ namespace RetroLib.Core
         int GetSampleRate();
         int GetAudioChannels();
         float[] GetAudioBuffer();
+        bool TryGetAudio(out float[] buffer);
+        void ReadAudio(float[] output, int length);
     }
 }
