@@ -271,7 +271,7 @@ Transform:
   m_GameObject: {fileID: 701651053}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0.7071068, z: -0.7071068, w: 0}
-  m_LocalPosition: {x: 0, y: 1.5, z: 1}
+  m_LocalPosition: {x: 0, y: 1.5, z: 6}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -443,8 +443,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 7c86ab27ac73fb249b79e40463e53d42, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::RetroLib.Debugging.RetroLibDebugOverlay
-  showOverlay: 1
-  toggleKey: 282
+  ShowOverlay: 1
+  ToggleKey: 282
 --- !u!4 &799226502
 Transform:
   m_ObjectHideFlags: 0
@@ -512,7 +512,7 @@ AudioSource:
   Spatialize: 0
   SpatializePostEffects: 0
   Priority: 128
-  DopplerLevel: 1
+  DopplerLevel: 0
   MinDistance: 1
   MaxDistance: 500
   Pan2D: 0
