@@ -1,11 +1,10 @@
 using System;
 using System.Collections;
-using System.Linq;
+using System.IO;
 using UnityEngine;
 using TMPro;
 using SK.Libretro.Unity;
 using UnityEngine.XR.Interaction.Toolkit;
-using System.IO;
 
 namespace retrovr.system
 {
@@ -13,373 +12,277 @@ namespace retrovr.system
     public class ConsoleInstance : MonoBehaviour
     {
         #region Inspector Fields
+
         [Header("Console Configuration")]
         [SerializeField] private ConsoleDefinition consoleDefinition;
         [SerializeField] private TMP_Text displayConsoleName;
         [SerializeField] private bool playAudio = true;
+
         #endregion
 
         #region State Handling
+
         [Header("Console State")]
+        [SerializeField] private ConsoleOperationalState operationalState = ConsoleOperationalState.Off;
+        [SerializeField] private ConsolePhysicalState physicalState = ConsolePhysicalState.Loose;
 
-        [SerializeField]
-        private ConsoleOperationalState operationalState = ConsoleOperationalState.Off;
-
-        [SerializeField]
-        private ConsolePhysicalState physicalState = ConsolePhysicalState.Loose;
         public event Action<ConsoleOperationalState> OnOperationalStateChanged;
         public event Action<ConsolePhysicalState> OnPhysicalStateChanged;
+
+        private bool emulatorDeinitialized = false;
+
         #endregion
 
         #region Component References
-        [Header("Libretro Instance")]
+
         private LibretroInstanceVariable emulatorInstance;
 
-        [Header("Screen Configuration")]
+        [Header("Screen Reference")]
         [SerializeField] private ScreenInstance screenInstance;
 
-        [Header("Cartridge Configuration")]
+        [Header("Cartridge")]
         private CartridgeInstance insertedCartridge;
 
-        // Optional audio feedback (serialize if you want sounds; keep null-safe)
-        [Header("Optional Feedback (audio)")]
+        [Header("Audio Feedback")]
         [SerializeField] private AudioSource feedbackAudioSource;
-        [SerializeField] private AudioClip clipPowerOn;
+        [SerializeField] private AudioClip clipButton;
         [SerializeField] private AudioClip clipInsertCartridge;
-        [SerializeField] private AudioClip clipPowerOff;
+
         #endregion
 
         #region Unity Lifecycle
+
         private void Awake()
         {
             if (consoleDefinition != null && displayConsoleName != null)
-            {
                 displayConsoleName.text = consoleDefinition.consoleName;
-            }
 
-            if (emulatorInstance == null)
-            {
-                emulatorInstance = ScriptableObject.CreateInstance<LibretroInstanceVariable>();
-            }
-
+            emulatorInstance = ScriptableObject.CreateInstance<LibretroInstanceVariable>();
             emulatorInstance.Current = GetComponent<LibretroInstance>();
+
             insertedCartridge = null;
 
             SetOperationalState(ConsoleOperationalState.Off);
             SetPhysicalState(ConsolePhysicalState.Loose);
         }
+
         #endregion
 
-        #region Console Handling
+        #region Screen / Cable Handling
+
         public void AttachScreen(ScreenInstance screen)
         {
             screenInstance = screen;
             SetPhysicalState(ConsolePhysicalState.ConnectedToScreen);
-            screen.SetOperationalState(ScreenOperationalState.NoSignal);
+
+            // Inform TV: signal is present
+            screenInstance.SetSignalPresent(true);
         }
 
         public void DetachScreen()
         {
-            screenInstance.SetOperationalState(ScreenOperationalState.Standby);
-            screenInstance = null;
+            if (screenInstance != null)
+            {
+                screenInstance.SetSignalPresent(false);
+                screenInstance = null;
+            }
+
             SetPhysicalState(ConsolePhysicalState.Loose);
         }
 
-        public void SetDefinition(ConsoleDefinition definition)
-        {
-            consoleDefinition = definition;
-            if (displayConsoleName != null && consoleDefinition != null)
-            {
-                displayConsoleName.text = consoleDefinition.consoleName;
-            }
-        }
-
-        private bool CanAcceptCartridge(CartridgeDefinition cartridgeDefinition)
-        {
-            if (!consoleDefinition.supportedExtensions.Contains(cartridgeDefinition.extension))
-            {
-                Log.Error($"[ConsoleInstance] Cartridge extension '{cartridgeDefinition.extension}' is not supported by {consoleDefinition.consoleName}.");
-                return false;
-            }
-
-            return true;
-        }
-
-        private string CoreToUse()
-        {
-            return string.IsNullOrEmpty(insertedCartridge.cartridgeDefinition.overrideCoreName)
-            ? consoleDefinition.coreName
-            : insertedCartridge.cartridgeDefinition.overrideCoreName;
-        }
         #endregion
 
         #region Power Handling
+
+        public void Power()
+        {
+            if (operationalState == ConsoleOperationalState.Initializing ||
+                operationalState == ConsoleOperationalState.ShuttingDown)
+                return;
+
+            if (IsPowered())
+                PowerOff();
+            else
+                PowerOn();
+        }
+
         public void PowerOn()
         {
-            TryPlayOneShot(clipPowerOn);
+            TryPlayOneShot(clipButton);
 
             if (consoleDefinition == null)
             {
-                Log.Error("[ConsoleInstance] Console definition is not set.");
+                Log.Error("[ConsoleInstance] No console definition.");
                 return;
             }
 
             if (screenInstance == null)
             {
-                Log.Error("[ConsoleInstance] Screen instance is not set.");
-                return;
+                Log.Warn("[ConsoleInstance] PowerOn with no screen attached.");
             }
 
             if (insertedCartridge == null)
             {
-                Log.Warn("[ConsoleInstance] PowerOn requested but no cartridge present. Use Power() to enter Standby.");
-                // set to Standby to reflect "powered but waiting"
+                // Powered but idle
                 SetOperationalState(ConsoleOperationalState.Standby);
+                NotifyScreenRunning(false);
                 return;
             }
 
-            // if emulator already running, ignore
             if (operationalState == ConsoleOperationalState.Running)
-            {
-                Log.Warn("[ConsoleInstance] PowerOn requested but emulator is already running.");
                 return;
-            }
 
             SetOperationalState(ConsoleOperationalState.Initializing);
 
-            // make sure emulator is initialized with the current cartridge and screen
-            InitializeEmulator();
+            if (!InitializeEmulator())
+            {
+                SetOperationalState(ConsoleOperationalState.Error);
+                return;
+            }
 
-            // start the emulation runtime
-            emulatorInstance.StartContent();
-
-            // wait for libretro to report running
-            StartCoroutine(WaitForEmulatorRunningCoroutine(5f));
+            emulatorInstance.Current.StartContent();
+            StartCoroutine(WaitForEmulatorRunningCoroutine());
         }
 
         public void PowerOff()
         {
-            TryPlayOneShot(clipPowerOff);
-            bool wasPowered = IsPowered();
+            TryPlayOneShot(clipButton);
 
-            // If already off, nothing to do
-            if (!wasPowered)
+            if (!IsPowered())
             {
-                Log.Warn("[ConsoleInstance] PowerOff requested but console is already Off or in Error.");
                 SetOperationalState(ConsoleOperationalState.Off);
+                NotifyScreenRunning(false);
                 return;
             }
 
-            if (operationalState == ConsoleOperationalState.Running)
+            SetOperationalState(ConsoleOperationalState.ShuttingDown);
+
+            if (emulatorInstance?.Current != null && emulatorInstance.Current.Running)
             {
-                SetOperationalState(ConsoleOperationalState.ShuttingDown);
+                emulatorInstance.StopContent();
             }
 
-            bool instanceCurrentExists = emulatorInstance != null && emulatorInstance.Current != null;
-
-            // If emulator is running, stop it gracefully
-            if (operationalState == ConsoleOperationalState.ShuttingDown && instanceCurrentExists && emulatorInstance.Current.Running)
-            {
-                try
-                {
-                    emulatorInstance.StopContent();
-                    // deinitialize the emulator as we are powering off (safe-guard)
-                    DeInitializeEmulator();
-                }
-                catch (Exception ex)
-                {
-                    Log.Error($"[ConsoleInstance] Error while stopping emulator: {ex.Message}");
-                }
-            }
-            else
-            {
-                // Not running (Standby or CartridgeInserted), ensure emulator is deinitialized
-                if (instanceCurrentExists)
-                {
-                    DeInitializeEmulator();
-                }
-            }
-
-            // Final state is Off
-            StartCoroutine(WaitForEmulatorOffCoroutine(5f));
+            StartCoroutine(WaitForEmulatorOffCoroutine());
         }
 
-        public void ResetConsole()
-        {
-            if (operationalState != ConsoleOperationalState.Running || !emulatorInstance.Current.Running)
-            {
-                Log.Error("[ConsoleInstance] Console is not powered on or emulator is not running.");
-                return;
-            }
-            PowerOff();
-            PowerOn();
-        }
         #endregion
 
         #region Cartridge Handling
+
         public void InsertCartridge(SelectEnterEventArgs args)
         {
-            if (insertedCartridge != null)
+            if (insertedCartridge != null) return;
+
+            var cartridge = args.interactableObject.transform.GetComponent<CartridgeInstance>();
+            if (cartridge == null) return;
+
+            if (!consoleDefinition.supportedExtensions.Contains(cartridge.cartridgeDefinition.extension))
             {
-                Log.Warn("[ConsoleInstance] A cartridge is already inserted. Eject before inserting a new one.");
                 return;
             }
 
-            var interactorable = args.interactableObject;
-            if (interactorable == null)
-            {
-                Log.Error("[ConsoleInstance] InsertCartridge called with null interactable.");
-                return;
-            }
-
-            var cartridgeObject = interactorable.transform.gameObject;
-            CartridgeInstance cartridgeInstance = cartridgeObject.GetComponent<CartridgeInstance>();
-            if (cartridgeInstance == null)
-            {
-                Log.Error("[ConsoleInstance] InsertCartridge: object is not a CartridgeInstance.");
-                return;
-            }
-
-            if (cartridgeInstance.cartridgeDefinition == null)
-            {
-                Log.Error("[ConsoleInstance] Cannot insert a null cartridge definition.");
-                return;
-            }
-
-            if (!CanAcceptCartridge(cartridgeInstance.cartridgeDefinition))
-            {
-                Log.Error("[ConsoleInstance] Cartridge rejected by CanAcceptCartridge.");
-                return;
-            }
-
-            insertedCartridge = cartridgeInstance;
-            SetPhysicalState(ConsolePhysicalState.Placed);
+            insertedCartridge = cartridge;
             SetOperationalState(ConsoleOperationalState.CartridgeInserted);
             TryPlayOneShot(clipInsertCartridge);
-
-            Log.Info($"[ConsoleInstance] Cartridge '{insertedCartridge.cartridgeDefinition.romName}' inserted.");
         }
 
         public void EjectCartridge()
         {
-            if (insertedCartridge == null)
-            {
-                Log.Warn("[ConsoleInstance] No cartridge to eject.");
-                return;
-            }
+            if (insertedCartridge == null) return;
 
-            // If emulator is running, require explicit PowerOff before ejecting
             if (operationalState == ConsoleOperationalState.Running)
-            {
-                Log.Warn("[ConsoleInstance] Cannot eject cartridge while emulator is running. Please PowerOff first.");
                 return;
-            }
 
-            // safe to deinitialize and remove cartridge
-            try
-            {
-                if (emulatorInstance?.Current != null)
-                {
-                    emulatorInstance.Current.DeInitialize();
-                    emulatorInstance.Current.Renderer = null;
-                }
-            }
-            catch (Exception ex)
-            {
-                Log.Warn($"[ConsoleInstance] Swallowed exception during DeInitialize: {ex.Message}");
-            }
-
-            // clear cartridge
-            var romName = insertedCartridge.cartridgeDefinition?.romName;
             insertedCartridge = null;
+            DeInitializeEmulator();
 
-            // if console still powered (e.g., was Standby) remain in Standby; otherwise Off
-            if (IsPowered())
-            {
-                SetOperationalState(ConsoleOperationalState.Standby);
-            }
-            else
-            {
-                SetOperationalState(ConsoleOperationalState.Off);
-            }
+            SetOperationalState(IsPowered()
+                ? ConsoleOperationalState.Standby
+                : ConsoleOperationalState.Off);
 
-            SetPhysicalState(ConsolePhysicalState.Loose);
-            PowerOff();
-
-            Log.Info($"[ConsoleInstance] Cartridge '{romName}' ejected.");
+            NotifyScreenRunning(false);
         }
+
         #endregion
 
         #region Emulator Handling
+
         private bool InitializeEmulator()
         {
-            if (emulatorInstance == null || consoleDefinition == null || insertedCartridge == null)
-            {
-                Log.Error("[ConsoleInstance] InitializeEmulator: preconditions not met (emulator/def/cart missing).");
+            if (insertedCartridge == null || emulatorInstance?.Current == null)
                 return false;
-            }
-            CartridgeDefinition cartDef = insertedCartridge.cartridgeDefinition;
 
-            string romPath = Path.Combine(Application.persistentDataPath, "roms", cartDef.romSubfolder);
-            emulatorInstance.Current.Initialize(CoreToUse(), romPath, cartDef.romName);
+            var cartDef = insertedCartridge.cartridgeDefinition;
+
+            string romPath = Path.Combine(
+                Application.persistentDataPath,
+                "roms",
+                cartDef.romSubfolder
+            );
+
+            emulatorInstance.Current.Initialize(
+                GetCoreName(),
+                romPath,
+                cartDef.romName
+            );
 
             emulatorInstance.Current.Renderer = screenInstance?.screenRenderer;
             emulatorInstance.Current.Collider = screenInstance?.screenCollider;
+
+            emulatorDeinitialized = false;
             return true;
         }
 
         private void DeInitializeEmulator()
         {
-            if (emulatorInstance == null)
-            {
-                Log.Error("[ConsoleInstance] Emulator instance is not set.");
-                return;
-            }
+            if (emulatorDeinitialized) return;
+            emulatorDeinitialized = true;
 
-            emulatorInstance.Current.DeInitialize();
-            emulatorInstance.Current.Renderer = null;
+            if (emulatorInstance?.Current != null)
+            {
+                emulatorInstance.Current.DeInitialize();
+                emulatorInstance.Current.Renderer = null;
+            }
         }
+
+        private string GetCoreName()
+        {
+            return string.IsNullOrEmpty(insertedCartridge.cartridgeDefinition.overrideCoreName)
+                ? consoleDefinition.coreName
+                : insertedCartridge.cartridgeDefinition.overrideCoreName;
+        }
+
         #endregion
 
-        #region Internal Helpers
+        #region State Helpers
+
+        private void NotifyScreenRunning(bool running)
+        {
+            if (screenInstance != null)
+                screenInstance.SetConsoleRunning(running);
+        }
+
         public void SetOperationalState(ConsoleOperationalState newState)
         {
             if (operationalState == newState) return;
 
             operationalState = newState;
-            Log.Info($"[ConsoleInstance] OperationalState -> {operationalState}");
             OnOperationalStateChanged?.Invoke(operationalState);
 
-            // Local minimal reactions (non-blocking)
             switch (operationalState)
             {
                 case ConsoleOperationalState.Initializing:
-                    // optionally notify screen to enter Booting (via screenInstance)
-                    if (screenInstance != null)
-                        Log.Info("[ConsoleInstance] Screen would enter Booting state here.");
-                        // screenInstance.SetOperationalState(ScreenOperationalState.Booting);
+                    NotifyScreenRunning(false);
                     break;
 
                 case ConsoleOperationalState.Running:
-                    if (screenInstance != null)
-                        Log.Info("[ConsoleInstance] Screen would enter ShowingContent state here.");
-                        // screenInstance.SetOperationalState(ScreenOperationalState.ShowingContent);
-                    break;
-
-                case ConsoleOperationalState.ShuttingDown:
-                    // We could animate shutdown visual here
+                    NotifyScreenRunning(true);
                     break;
 
                 case ConsoleOperationalState.Off:
-                    if (screenInstance != null)
-                        Log.Info("[ConsoleInstance] Screen would enter Off state here.");
-                        // screenInstance.SetOperationalState(ScreenOperationalState.Off);
-                    break;
-
+                case ConsoleOperationalState.Standby:
                 case ConsoleOperationalState.Error:
-                    if (screenInstance != null)
-                        Log.Info("[ConsoleInstance] Screen would enter Error state here.");
-                        // screenInstance.SetOperationalState(ScreenOperationalState.Error);
+                    NotifyScreenRunning(false);
                     break;
             }
         }
@@ -387,106 +290,66 @@ namespace retrovr.system
         public void SetPhysicalState(ConsolePhysicalState newState)
         {
             if (physicalState == newState) return;
+
             physicalState = newState;
-            Log.Info($"[ConsoleInstance] PhysicalState -> {physicalState}");
             OnPhysicalStateChanged?.Invoke(physicalState);
-
-            // Local reactions (snap transforms, lock rigidbody, etc) - keep small here
-            switch (physicalState)
-            {
-                case ConsolePhysicalState.Held:
-                    // e.g., disable rigidbody gravity if needed
-                    break;
-                case ConsolePhysicalState.Placed:
-                    // e.g., re-enable physics or fix rotation
-                    break;
-                case ConsolePhysicalState.ConnectedToScreen:
-                    // ensure emulator renderer is assigned
-                    if (emulatorInstance?.Current != null && screenInstance != null)
-                    {
-                        emulatorInstance.Current.Renderer = screenInstance.screenRenderer;
-                        emulatorInstance.Current.Collider = screenInstance.screenCollider;
-                    }
-                    break;
-            }
-        }
-
-        private void TryPlayOneShot(AudioClip clip)
-        {
-            if (!playAudio) return;
-            if (clip == null || feedbackAudioSource == null) return;
-            feedbackAudioSource.PlayOneShot(clip);
-
-        }
-
-        private IEnumerator WaitForEmulatorRunningCoroutine(float timeoutSeconds = 5f)
-        {
-            float t = 0f;
-            while (t < timeoutSeconds)
-            {
-                if (emulatorInstance != null && emulatorInstance.Current != null && emulatorInstance.Current.Running)
-                {
-                    SetOperationalState(ConsoleOperationalState.Running);
-                    yield break;
-                }
-                t += Time.deltaTime;
-                yield return null;
-            }
-
-            // timed out
-            Log.Warn("[ConsoleInstance] Timeout waiting for emulator to report Running.");
-            SetOperationalState(ConsoleOperationalState.Error);
-        }
-
-        private IEnumerator WaitForEmulatorOffCoroutine(float timeoutSeconds = 5f)
-        {
-            float t = 0f;
-            while (t < timeoutSeconds)
-            {
-                if (emulatorInstance != null && emulatorInstance.Current != null && !emulatorInstance.Current.Running)
-                {
-                    DeInitializeEmulator();
-                    SetOperationalState(ConsoleOperationalState.Off);
-                    yield break;
-                }
-                t += Time.deltaTime;
-                yield return null;
-            }
-
-            // timed out
-            Log.Warn("[ConsoleInstance] Timeout waiting for emulator to report Off.");
-            SetOperationalState(ConsoleOperationalState.Error);
         }
 
         private bool IsPowered()
         {
             return operationalState != ConsoleOperationalState.Off &&
-                operationalState != ConsoleOperationalState.Error &&
-                operationalState != ConsoleOperationalState.ShuttingDown;
+                   operationalState != ConsoleOperationalState.Error;
         }
 
-        public void Power()
+        private void TryPlayOneShot(AudioClip clip)
         {
-            // If currently in the middle of starting/shutting it's safer to ignore toggle requests
-            if (operationalState == ConsoleOperationalState.Initializing || operationalState == ConsoleOperationalState.ShuttingDown)
-            {
-                Log.Warn("[ConsoleInstance] Power toggle ignored while transitioning.");
-                return;
-            }
-
-            bool wasPowered = IsPowered();
-
-            if (wasPowered && operationalState != ConsoleOperationalState.CartridgeInserted)
-            {
-                Log.Info("[ConsoleInstance] Power toggle: currently powered, toggling off.");
-                // If currently running or in standby, toggle off
-                PowerOff();
-                return;
-            }
-
-            PowerOn();
-
+            if (!playAudio || feedbackAudioSource == null || clip == null) return;
+            feedbackAudioSource.PlayOneShot(clip);
         }
+
+        #endregion
+
+        #region Coroutines
+
+        private IEnumerator WaitForEmulatorRunningCoroutine(float timeout = 5f)
+        {
+            float t = 0f;
+            while (t < timeout)
+            {
+                if (emulatorInstance.Current != null &&
+                    emulatorInstance.Current.Running)
+                {
+                    SetOperationalState(ConsoleOperationalState.Running);
+                    yield break;
+                }
+
+                t += Time.deltaTime;
+                yield return null;
+            }
+
+            SetOperationalState(ConsoleOperationalState.Error);
+        }
+
+        private IEnumerator WaitForEmulatorOffCoroutine(float timeout = 5f)
+        {
+            float t = 0f;
+            while (t < timeout)
+            {
+                if (emulatorInstance.Current != null &&
+                    !emulatorInstance.Current.Running)
+                {
+                    DeInitializeEmulator();
+                    SetOperationalState(ConsoleOperationalState.Off);
+                    yield break;
+                }
+
+                t += Time.deltaTime;
+                yield return null;
+            }
+
+            SetOperationalState(ConsoleOperationalState.Error);
+        }
+
         #endregion
     }
 }

@@ -9,16 +9,12 @@ namespace retrovr.system
 
         public void OnPlugged(SelectEnterEventArgs args)
         {
-            var plug = args.interactableObject.transform.GetComponent<CablePlug>();
-            if (plug == null) return;
-            plug.Connect(this);
+            GetComponent<CableSocketSpawner>()?.NotifyConnected();
         }
 
         public void OnUnplugged(SelectExitEventArgs args)
         {
-            var plug = args.interactableObject.transform.GetComponent<CablePlug>();
-            if (plug == null) return;
-            plug.Disconnect();
+            GetComponent<CableSocketSpawner>()?.NotifyDisconnected();
         }
     }
 }

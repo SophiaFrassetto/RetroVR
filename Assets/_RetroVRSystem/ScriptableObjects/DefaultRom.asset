@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6ad903d4fee85574abc54eea510fb44b, type: 3}
   m_Name: DefaultRom
   m_EditorClassIdentifier: 
-  romName: Super Mario World (USA)
+  romName: 'Super Mario World (U) [!]'
   romSubfolder: snes
   overrideCoreName: 
   extension: .sfc

@@ -3,30 +3,19 @@ using UnityEngine.Events;
 
 namespace retrovr.system.interaction
 {
-    [RequireComponent(typeof(Rigidbody), typeof(Collider))]
     public class XRPhysicalSwitch : MonoBehaviour
     {
         public enum SwitchAxis { X, Y, Z }
 
-        [Header("Switch Settings")]
-        public SwitchAxis axis = SwitchAxis.Y;
-        public float travel = 0.02f;
-        public float snapSpeed = 10f;
+        public SwitchAxis axis = SwitchAxis.Z;
+        public float travel = 0.014f;
+        public float snapSpeed = 15f;
 
-        [Header("Events")]
         public UnityEvent onStateA;
         public UnityEvent onStateB;
 
         private Vector3 startLocalPos;
         private bool stateA = true;
-
-        private Rigidbody rb;
-
-        void Awake()
-        {
-            rb = GetComponent<Rigidbody>();
-            ConfigurePhysics();
-        }
 
         void Start()
         {
@@ -35,7 +24,7 @@ namespace retrovr.system.interaction
 
         void Update()
         {
-            float delta = GetDelta();
+            float delta = GetLocalDelta();
 
             if (stateA && delta > travel * 0.5f)
             {
@@ -48,11 +37,18 @@ namespace retrovr.system.interaction
                 onStateA?.Invoke();
             }
 
-            Vector3 target = stateA ? startLocalPos : startLocalPos + GetAxisVector() * travel;
-            transform.localPosition = Vector3.Lerp(transform.localPosition, target, Time.deltaTime * snapSpeed);
+            Vector3 targetLocal = stateA
+                ? startLocalPos
+                : startLocalPos + GetAxisVector() * travel;
+
+            transform.localPosition = Vector3.Lerp(
+                transform.localPosition,
+                targetLocal,
+                Time.deltaTime * snapSpeed
+            );
         }
 
-        float GetDelta()
+        float GetLocalDelta()
         {
             Vector3 local = transform.localPosition - startLocalPos;
             return axis switch
@@ -71,21 +67,6 @@ namespace retrovr.system.interaction
                 SwitchAxis.Y => Vector3.up,
                 _ => Vector3.forward
             };
-        }
-
-        void ConfigurePhysics()
-        {
-            rb.useGravity = false;
-            rb.isKinematic = false;
-            rb.mass = 0.1f;
-            rb.linearDamping = 10f;
-            rb.angularDamping = 10f;
-
-            rb.constraints =
-                RigidbodyConstraints.FreezeRotation |
-                (axis != SwitchAxis.X ? RigidbodyConstraints.FreezePositionX : 0) |
-                (axis != SwitchAxis.Y ? RigidbodyConstraints.FreezePositionY : 0) |
-                (axis != SwitchAxis.Z ? RigidbodyConstraints.FreezePositionZ : 0);
         }
     }
 }

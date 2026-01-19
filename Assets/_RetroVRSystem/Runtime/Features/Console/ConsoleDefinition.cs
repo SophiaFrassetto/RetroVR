@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace retrovr.system
@@ -7,7 +8,7 @@ namespace retrovr.system
     {
         public string consoleName;
         public string coreName;
-        public string[] supportedExtensions;
+        public List<string> supportedExtensions;
         public bool isPortable = false;
     }
 }

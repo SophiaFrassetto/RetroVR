@@ -5,125 +5,227 @@ namespace retrovr.system
 {
     public class ScreenInstance : MonoBehaviour
     {
-        #region Fields
-        [Header("Screen Configuration")]
-        [SerializeField] public string screenName;
-
         [Header("State")]
+        [SerializeField] private bool isPoweredOn = false;
+        [SerializeField] private bool hasSignal = false;
+
         [SerializeField] private ScreenOperationalState operationalState = ScreenOperationalState.Off;
         [SerializeField] private ScreenPhysicalState physicalState = ScreenPhysicalState.Loose;
 
         public event Action<ScreenOperationalState> OnOperationalStateChanged;
         public event Action<ScreenPhysicalState> OnPhysicalStateChanged;
 
-        [Header("Renderer / Material")]
-        [SerializeField] public Renderer screenRenderer; // assign in prefab
-        [SerializeField] public Collider screenCollider; // assign in prefab
-        [SerializeField] private Material noSignalMaterial; // PNG / texture for NoSignal
-        [SerializeField] private Texture staticTexture; // optional GIF-like texture sheet or animated material
+        [Header("Renderer")]
+        [SerializeField] public Renderer screenRenderer;
+        [SerializeField] public Collider screenCollider;
+        [SerializeField] private Material noSignalMaterial;
+        [SerializeField] private Texture staticTexture;
 
         [Header("Audio")]
+        [SerializeField] private bool playAudio = true;
+        [SerializeField] private AudioSource feedbackAudioSource;
         [SerializeField] private AudioSource tvAudioSource;
         [SerializeField] private AudioClip staticLoopClip;
-        [SerializeField] private AudioClip clickClip;
-        #endregion
+        [SerializeField] private AudioClip clipButtom;
 
-        #region Screen Power Management
-        #endregion
+        private Material runtimeMaterial;
 
-        #region Screen Volume Management
-        #endregion
+        void Awake()
+        {
+            if (screenRenderer != null && noSignalMaterial != null)
+            {
+                runtimeMaterial = new Material(noSignalMaterial);
+                screenRenderer.material = runtimeMaterial;
+            }
 
-        #region State Management
+            ApplyState();
+        }
+
+        // =====================
+        // POWER
+        // =====================
+
+        public void PowerOn()
+        {
+            TryPlayOneShot(clipButtom);
+            isPoweredOn = true;
+            ApplyState();
+        }
+
+        public void PowerOff()
+        {
+            TryPlayOneShot(clipButtom);
+            isPoweredOn = false;
+            hasSignal = false;
+            SetOperationalState(ScreenOperationalState.Off);
+        }
+
+        public void Power()
+        {
+            if (isPoweredOn)
+                PowerOff();
+            else
+                PowerOn();
+        }
+
+        // =====================
+        // SIGNAL / CONSOLE
+        // =====================
+
+        public void SetSignalPresent(bool present)
+        {
+            hasSignal = present;
+            ApplyState();
+        }
+
+        public void SetConsoleRunning(bool running)
+        {
+            if (!isPoweredOn) return;
+
+            if (!hasSignal)
+            {
+                SetOperationalState(ScreenOperationalState.NoSignal);
+            }
+            else if (running)
+            {
+                SetOperationalState(ScreenOperationalState.ShowingContent);
+            }
+            else
+            {
+                SetOperationalState(ScreenOperationalState.Booting); // static
+            }
+        }
+
+        // =====================
+        // STATE HANDLING
+        // =====================
+
+        private void ApplyState()
+        {
+            if (!isPoweredOn)
+            {
+                SetOperationalState(ScreenOperationalState.Off);
+                return;
+            }
+
+            if (!hasSignal)
+            {
+                SetOperationalState(ScreenOperationalState.NoSignal);
+                return;
+            }
+
+            // powered + signal but not running yet
+            SetOperationalState(ScreenOperationalState.Booting);
+        }
+
         public void SetOperationalState(ScreenOperationalState newState)
         {
             if (operationalState == newState) return;
             operationalState = newState;
-            Log.Info($"[ScreenInstance] OperationalState -> {operationalState}");
+
+            UpdateVisuals();
             OnOperationalStateChanged?.Invoke(newState);
-            UpdateVisualsForState(newState);
         }
 
         public void SetPhysicalState(ScreenPhysicalState newState)
         {
             if (physicalState == newState) return;
             physicalState = newState;
-            Log.Info($"[ScreenInstance] PhysicalState -> {physicalState}");
+
+            var phys = GetComponent<physics.XRPhysicalObject>();
+            if (phys != null)
+            {
+                if (newState == ScreenPhysicalState.Held)
+                    phys.OnGrabbed();
+                else if (newState == ScreenPhysicalState.Mounted)
+                    phys.ForceKinematic();
+                else
+                    phys.OnReleased();
+            }
+
             OnPhysicalStateChanged?.Invoke(newState);
-            // small local effects: enable collisions, mount transforms, etc.
         }
 
-        private void UpdateVisualsForState(ScreenOperationalState state)
+        // =====================
+        // VISUALS / AUDIO
+        // =====================
+
+        private void UpdateVisuals()
         {
-            switch (state)
+            if (screenRenderer == null || runtimeMaterial == null) return;
+
+            switch (operationalState)
             {
                 case ScreenOperationalState.Off:
-                    if (tvAudioSource != null) tvAudioSource.Stop();
-                    ApplyNoSignal(false);
-                    SetRendererEnabled(false);
+                    screenRenderer.enabled = false;
+                    StopStatic();
                     break;
 
-                case ScreenOperationalState.Standby:
                 case ScreenOperationalState.NoSignal:
-                    SetRendererEnabled(true);
-                    ApplyNoSignal(true);
-                    PlayStaticLoop(false); // maybe no audio for NoSignal if prefer only image
+                    screenRenderer.enabled = true;
+                    runtimeMaterial.mainTexture = null;
+                    StopStatic();
                     break;
 
                 case ScreenOperationalState.Booting:
-                    SetRendererEnabled(true);
-                    ApplyStaticTexture();
-                    PlayStaticLoop(true);
+                    screenRenderer.enabled = true;
+                    runtimeMaterial.mainTexture = staticTexture;
+                    PlayStatic();
                     break;
 
                 case ScreenOperationalState.ShowingContent:
-                    // actual content rendering will be provided by emulator libretro into a RenderTexture
-                    // ensure tvAudioSource stops the static
-                    PlayStaticLoop(false);
-                    // material should display the RenderTexture assigned by emulator
+                    screenRenderer.enabled = true;
+                    StopStatic();
                     break;
 
                 case ScreenOperationalState.Error:
-                    SetRendererEnabled(true);
-                    ApplyNoSignal(true);
-                    PlayStaticLoop(true);
+                    screenRenderer.enabled = true;
+                    runtimeMaterial.mainTexture = null;
+                    PlayStatic();
                     break;
             }
         }
 
-        private void SetRendererEnabled(bool enabled)
-        {
-            if (screenRenderer == null) return;
-            screenRenderer.enabled = enabled;
-        }
-
-        private void ApplyNoSignal(bool show)
-        {
-            if (screenRenderer == null || noSignalMaterial == null) return;
-            if (show)
-                screenRenderer.material = noSignalMaterial;
-        }
-
-        private void ApplyStaticTexture()
-        {
-            if (screenRenderer == null || staticTexture == null) return;
-            screenRenderer.material.mainTexture = staticTexture;
-            // if you want animated static, use a shader that scrolls uv or a flipbook shader
-        }
-
-        private void PlayStaticLoop(bool play)
+        private void PlayStatic()
         {
             if (tvAudioSource == null || staticLoopClip == null) return;
-            if (play)
+            if (!tvAudioSource.isPlaying)
             {
+                tvAudioSource.clip = staticLoopClip;
                 tvAudioSource.loop = true;
-                if (!tvAudioSource.isPlaying) tvAudioSource.Play();
-            }
-            else
-            {
-                if (tvAudioSource.isPlaying) tvAudioSource.Stop();
+                tvAudioSource.Play();
             }
         }
-        #endregion
+
+        private void StopStatic()
+        {
+            if (tvAudioSource != null && tvAudioSource.isPlaying)
+                tvAudioSource.Stop();
+        }
+
+        // =====================
+        // VOLUME
+        // =====================
+
+        public void VolumeUp()
+        {
+            if (tvAudioSource == null) return;
+            TryPlayOneShot(clipButtom);
+            tvAudioSource.volume = Mathf.Clamp01(tvAudioSource.volume + 0.1f);
+        }
+
+        public void VolumeDown()
+        {
+            if (tvAudioSource == null) return;
+            TryPlayOneShot(clipButtom);
+            tvAudioSource.volume = Mathf.Clamp01(tvAudioSource.volume - 0.1f);
+        }
+
+        private void TryPlayOneShot(AudioClip clip)
+        {
+            if (!playAudio) return;
+            if (clip == null || feedbackAudioSource == null) return;
+            feedbackAudioSource.PlayOneShot(clip);
+        }
     }
 }

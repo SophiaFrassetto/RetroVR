@@ -1,6 +1,7 @@
 using System;
 using UnityEngine;
 using TMPro;
+using retrovr.system.physics;
 
 namespace retrovr.system
 {
@@ -56,7 +57,24 @@ namespace retrovr.system
         {
             if (physicalState == newState) return;
             physicalState = newState;
-            Log.Info($"[CartridgeInstance] PhysicalState -> {physicalState}");
+
+            var physical = GetComponent<XRPhysicalObject>();
+
+            switch (newState)
+            {
+                case CartridgePhysicalState.Held:
+                    physical?.OnGrabbed();
+                    break;
+
+                case CartridgePhysicalState.Loose:
+                    physical?.OnReleased();
+                    break;
+
+                case CartridgePhysicalState.Inserted:
+                    physical?.ForceKinematic();
+                    break;
+            }
+
             OnPhysicalStateChanged?.Invoke(newState);
         }
         #endregion
