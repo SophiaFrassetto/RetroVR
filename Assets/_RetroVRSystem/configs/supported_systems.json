@@ -1,0 +1,140 @@
+{
+    "version": 1,
+    "systems": [
+        {
+            "id": "GB",
+            "name": "Game Boy",
+            "media": "Cartridge",
+            "manufacturer": "Nintendo",
+            "extensions": [
+                ".gb"
+            ],
+            "folder_names": [
+                "GB",
+                "Game Boy"
+            ],
+            "bios_required": false,
+            "bios_files": [],
+            "recommended_core": "gambatte",
+            "cores": [
+                "gambatte",
+                "tgbdual"
+            ]
+        },
+        {
+            "id": "GBC",
+            "name": "Game Boy Color",
+            "media": "Cartridge",
+            "manufacturer": "Nintendo",
+            "extensions": [
+                ".gbc",
+                ".gb"
+            ],
+            "folder_names": [
+                "GBC",
+                "Game Boy Color"
+            ],
+            "bios_required": false,
+            "bios_files": [],
+            "recommended_core": "gambatte",
+            "cores": [
+                "gambatte",
+                "gearboy"
+            ]
+        },
+        {
+            "id": "GBA",
+            "name": "Game Boy Advance",
+            "media": "Cartridge",
+            "manufacturer": "Nintendo",
+            "extensions": [
+                ".gba"
+            ],
+            "folder_names": [
+                "GBA",
+                "Game Boy Advance"
+            ],
+            "bios_required": false,
+            "bios_files": [
+                "gba_bios.bin"
+            ],
+            "recommended_core": "mgba",
+            "cores": [
+                "mgba",
+                "gpsp"
+            ]
+        },
+        {
+            "id": "NES",
+            "name": "Nintendo Entertainment System",
+            "media": "Cartridge",
+            "manufacturer": "Nintendo",
+            "extensions": [
+                ".nes",
+                ".fds",
+                ".unf",
+                ".unif"
+            ],
+            "folder_names": [
+                "NES",
+                "Nintendo",
+                "Famicom"
+            ],
+            "bios_required": false,
+            "bios_files": [
+                "disksys.rom"
+            ],
+            "recommended_core": "fceumm",
+            "cores": [
+                "fceumm",
+                "mesen",
+                "nestopia"
+            ]
+        },
+        {
+            "id": "SNES",
+            "name": "Super Nintendo",
+            "media": "Cartridge",
+            "manufacturer": "Nintendo",
+            "extensions": [
+                ".sfc",
+                ".smc"
+            ],
+            "folder_names": [
+                "SNES",
+                "Super Nintendo"
+            ],
+            "bios_required": false,
+            "bios_files": [],
+            "recommended_core": "snes9x",
+            "cores": [
+                "snes9x",
+                "bsnes"
+            ]
+        },
+        {
+            "id": "MD",
+            "name": "Mega Drive / Genesis",
+            "media": "Cartridge",
+            "manufacturer": "Sega",
+            "extensions": [
+                ".md",
+                ".gen",
+                ".bin",
+                ".smd"
+            ],
+            "folder_names": [
+                "MD",
+                "Genesis",
+                "Mega Drive"
+            ],
+            "bios_required": false,
+            "bios_files": [],
+            "recommended_core": "genesis_plus_gx",
+            "cores": [
+                "genesis_plus_gx",
+                "picodrive"
+            ]
+        }
+    ]
+}

@@ -9,106 +9,10 @@ O objetivo é criar uma experiência imersiva onde o jogador interage fisicament
 
 O projeto é **standalone**, não precisa de PC para rodar, e é focado em uma experiência nostálgica e intuitiva.
 
----
+# DISCAIMER
+Este projeto é para fins educacionais e de desenvolvimento. Ele não inclui ROMs ou BIOS de consoles, e os usuários devem fornecer seus próprios arquivos para emulação. O uso de ROMs e BIOS deve estar em conformidade com as leis de direitos autorais aplicáveis.
 
-## ✨ Principais Funcionalidades
-
-- Emulação de consoles retrô via **Libretro**.
-- Ambientes 3D em VR com interação física.
-- Consoles funcionais com **slot de cartucho físico**.
-- Cartuchos interativos com sistema de “inserir e executar”.
-- TV funcional em VR com:
-  - vídeo em tempo real
-  - áudio funcional
-
----
-
-## ✅ Estado Atual do Projeto
-
-Atualmente o projeto já possui:
-
-✅ Sala VR funcional (placeholder)
-
-✅ Criação de pastas externas automáticas
-
-✅ Console físico funcional em VR
-- Slot real de cartucho
-- Ligamento automático ao inserir cartucho
-
-✅ Cartuchos físicos interativos (XRGrab)
-
-✅ TV física funcional em VR
-- Saída de vídeo já funcional
-- Áudio já funcional
-
-✅ Sistema de Prefabs para:
-- Consoles
-- Cartuchos
-
-✅ Configuração por script:
-- Core por console
-- Extensões aceitas
-- Override de core por cartucho
-
-O fluxo completo já funciona:
-
-**Pegar cartucho → Inserir → Console liga → Jogo roda com vídeo e som**
-
----
-
-## 🛠️ Tecnologias / Libs
-
-| Tecnologia        | Versão / Badge                                                                 |
-|-------------------|------------------------------------------------------------------------------|
-| Unity             | ![-Unity 6000.3.2f1](https://img.shields.io/badge/Unity-6000.3.2f1-blue.svg) |          |
-| C#                | ![C#](https://img.shields.io/badge/C%23-gray.svg?logo=c-sharp&logoColor=white) |
-
-> ⚠️ **Aviso importante**
-> O projeto foi atualizado da Unity **6000.1.14f1** para **6000.3.2f1** devido a vulnerabilidades de segurança identificadas na versão anterior.
-> Recomendamos fortemente que contribuidores utilizem apenas a versão atual para evitar problemas de compatibilidade e riscos de segurança.
+O projeto ainda é um protótipo em desenvolvimento, e pode conter bugs ou limitações. Feedbacks e contribuições são bem-vindos para melhorar a experiência.
 
 
----
 
-## 📂 Estrutura de Pastas Externas
-
-```plaintext
-com.unity.RetroVR/
-├── files
-│   ├── Libretro/
-│   │   ├── config/
-│   │   ├── roms/
-│   │   ├── cores/
-│   │   ├── labels/
-│   │   ├── saves/
-│   │   └── worldSaves/
-```
-
----
-
-## 🚀 Como Instalar
-
-1. Baixe o APK na seção de **Releases**.
-2. Instale no Meta Quest usando o **SideQuest**.
-
----
-
-## 📸 Screenshots
-
-<p align="center">
-  <img src="Docs/img/first_print.png" alt="First Print" width="600"/>
-</p>
-
----
-
-## 📄 Licença
-
-Este projeto está sob a licença **MIT**.
-Veja o arquivo [LICENSE](./LICENSE).
-
----
-
-## 💬 Contato
-
-Abra uma issue em:
-https://github.com/SophiaFrassetto/RetroVR/issues
