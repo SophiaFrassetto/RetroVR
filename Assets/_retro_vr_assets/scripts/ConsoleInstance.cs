@@ -37,7 +37,7 @@ public class Console : MonoBehaviour
         {
             Debug.Log("Input focus set to console.");
             _libretroInstance.Current.InputEnabled = true;
-            // _libretroInstance.SetInputEnabled(true);
+            _libretroInstance.SetInputEnabled(true);
         }
     }
 
